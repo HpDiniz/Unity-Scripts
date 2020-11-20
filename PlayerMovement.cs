@@ -267,7 +267,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
         Ray ray = fpsCam.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
         RaycastHit hit;
-
+    
         Vector3 targetPoint;
         if(Physics.Raycast(ray, out hit))
             targetPoint = hit.point;
@@ -279,7 +279,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         GameObject bullets = Instantiate(bullettrail.gameObject, muzzleFlash.transform.position,Quaternion.identity);
         LineRenderer lineRenderer = bullets.GetComponent<LineRenderer>();
         lineRenderer.SetPosition(0, muzzleFlash.transform.position);
-        lineRenderer.SetPosition(1, hit.transform.position);
+        lineRenderer.SetPosition(1, targetPoint);
 
         /*
         object[] instanceData = new object[2];
