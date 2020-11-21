@@ -63,6 +63,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public bool reloadingAnim = false;
     public bool shootingAnim = false;
 
+    UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
 	CharacterController rb;
     Transform heaven;
@@ -87,7 +88,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
+        updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
 
+        updateRanking.UpdatePlayers();
+        
         if(PV.IsMine)
 		{   
             if(canvas){
@@ -122,9 +126,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
         if(waitingForSpawn)
             return;
-
-        Debug.Log("Você matou: " + killCounter);
-        Debug.Log("Você morreu: " + deathCounter);
 
         this.lifeText.text = health.ToString();
 
@@ -265,21 +266,27 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         shootSound.Play(0);
         this.GetComponent<PhotonView>().RPC("ShootSound",RpcTarget.Others);
 
-        Ray ray = fpsCam.ViewportPointToRay(new Vector3(0.5f,0.5f,0f));
         RaycastHit hit;
     
-        Vector3 targetPoint;
-        if(Physics.Raycast(ray, out hit))
-            targetPoint = hit.point;
-        else
-            targetPoint = ray.GetPoint(75);   
+        if (Physics.Raycast(muzzleFlash.transform.position, fpsCam.transform.forward, out hit, range))
+        {   
 
-        Vector3 directionWithoutSpread = targetPoint - muzzleFlash.transform.position;
+            if(hit.collider != null && hit.transform.tag == "Player"){
+                if(hit.transform.gameObject){
+                    PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
 
-        GameObject bullets = Instantiate(bullettrail.gameObject, muzzleFlash.transform.position,Quaternion.identity);
-        LineRenderer lineRenderer = bullets.GetComponent<LineRenderer>();
-        lineRenderer.SetPosition(0, muzzleFlash.transform.position);
-        lineRenderer.SetPosition(1, targetPoint);
+                    object[] instanceData = new object[3];
+                    instanceData[0] = 20;
+                    instanceData[1] = target.PV.InstantiationId;
+                    instanceData[2] = this.PV.InstantiationId;
+
+                    PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
+                    //enemy.TakeDamage(20,this);
+                }
+            } else {
+                PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
+            }
+        }
 
         /*
         object[] instanceData = new object[2];
@@ -335,30 +342,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         if(!PV.IsMine)
 			return;
 
-        if(other.tag == "Bullet")
-        {   
-            Bullet bulletHit = other.GetComponent<Bullet>();
-            this.health = this.health - bulletHit.damage;
-            bulletHit.HitPlayer();
-
-            if(this.health <= 0){
-                
-                this.health = 0;
-
-                PlayerMovement[] allPlayers = FindObjectsOfType<PlayerMovement>();
-
-                foreach (PlayerMovement player in allPlayers)
-                {
-                    Debug.Log(player.PV.InstantiationId);
-                    if(player.PV.InstantiationId == bulletHit.playerWhoShooted){
-                        Kill(this,player);
-                        break;
-                    }
-                }
-                
-            }
-        } 
-
         if(other.tag == "Respawn")
         {   
             Kill(this,null);
@@ -366,6 +349,31 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         {
             noGuns = true;
         }
+    }
+    
+    [PunRPC]
+    public void TakeDamage(object[] instantiationData) //, PlayerMovement playerWhoShooted
+    {   
+
+        if(this.PV.InstantiationId != (int) instantiationData[1])
+            return;
+
+        this.health = this.health - (int)instantiationData[0];
+
+        if(this.health <= 0){
+            
+            this.health = 0;
+
+            PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+
+            foreach (PlayerMovement player in players)
+            {
+                if(player.PV.InstantiationId == (int) instantiationData[2])
+                    Kill(this,player);
+            }
+
+            Kill(this,this);
+        }   
     }
 
     void OnTriggerExit(Collider other)
@@ -383,6 +391,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         if(target.waitingForSpawn == false)
         {   
+            updateRanking.UpdateCounter();
             target.deathCounter++;
             PV.RPC("playGeralSound",RpcTarget.AllBuffered);
             if(enemy != null && (enemy.PV.InstantiationId != target.PV.InstantiationId)){
@@ -393,7 +402,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
     }
 
-    
     [PunRPC]
     public void playGeralSound()
     {
