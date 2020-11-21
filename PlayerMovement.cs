@@ -197,23 +197,27 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {
         if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
         {   
-            StopCoroutine(ExibeSensibilidade());
-            StartCoroutine(ExibeSensibilidade());
+            sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString("#.##");
+            sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 100f);
         } else if(Input.GetKey(KeyCode.KeypadMinus) || Input.GetKey(KeyCode.Minus))
         {   
-            StopCoroutine(ExibeSensibilidade());
-            StartCoroutine(ExibeSensibilidade());
+            sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString("#.##");
+            sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 100f);
+        }
+
+        if((Input.GetKeyUp(KeyCode.KeypadPlus) || Input.GetKeyUp(KeyCode.Plus)) || (Input.GetKeyUp(KeyCode.KeypadMinus) || Input.GetKeyUp(KeyCode.Minus)))
+        {   
+            StopCoroutine(ExitSensibilidade());
+            StartCoroutine(ExitSensibilidade());
         }
         
     }   
-
-    IEnumerator ExibeSensibilidade()
+    
+    IEnumerator ExitSensibilidade()
     {   
-        sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString("#.##");
-        sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 100f);
         yield return new WaitForSeconds(3f);
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
-    }
+    } 
 
     void checkHands()
     {   

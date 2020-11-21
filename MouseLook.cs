@@ -30,10 +30,10 @@ public class MouseLook : MonoBehaviour
 
         if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
         {
-            mouseSensitivity = mouseSensitivity + 0.1f;
+            mouseSensitivity = mouseSensitivity + 0.2f;
         } else if(Input.GetKey(KeyCode.KeypadMinus) || Input.GetKey(KeyCode.Minus))
         {
-            mouseSensitivity = mouseSensitivity - 0.1f;
+            mouseSensitivity = mouseSensitivity - 0.2f;
         }
         
         if(mouseSensitivity < 50f)
