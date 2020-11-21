@@ -201,6 +201,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             } else{
                 CheckAnimation();
             }
+
         } else{
             CheckAnimation();
         }
@@ -311,15 +312,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         target.clipSize = 30;
         target.currentAmmo = 30;
         target.enabled = false;
+        target.health = 100;
         yield return new WaitForSeconds(0.3f);
-
         float x = Random.Range(-(target.heaven.transform.position.x + 5f), (target.heaven.transform.position.x + 5f));
         float z = Random.Range(-(target.heaven.transform.position.z + 5f), target.heaven.transform.position.z + 5f);
         target.transform.position = new Vector3(x,target.heaven.transform.position.y + 4f,z);
-        target.health = 100;
-        //life.text = health.ToString();
-        //target.bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
         yield return new WaitForSeconds(0.3f);
+        target.health = 100;
         target.enabled = true;
         target.waitingForSpawn = false;
         
@@ -331,8 +330,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 			return;
 
         if(other.tag == "Respawn")
-        {   
-            Kill(this,this);
+        {  
+            object[] instanceData = new object[3];
+            instanceData[0] = 100;
+            instanceData[1] = this.PV.InstantiationId;
+            instanceData[2] = this.PV.InstantiationId;
+            PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
         } else if(other.tag == "NoGuns")
         {
             noGuns = true;
@@ -352,7 +355,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         {
             if(player.PV.InstantiationId == (int) instantiationData[1])
                 whoReceivedDamage = player;
-            else if(player.PV.InstantiationId == (int) instantiationData[2])
+            if(player.PV.InstantiationId == (int) instantiationData[2])
                 whoCausedDamage = player;
                 
         }
@@ -393,6 +396,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             target.waitingForSpawn = true;
             updateRanking.UpdatePlayers();
             StartCoroutine(ResetVariabels(target));
+            updateRanking.UpdatePlayers();
         }
     }
 
