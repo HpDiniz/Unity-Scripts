@@ -5,7 +5,7 @@ using UnityEngine;
 public class MouseLook : MonoBehaviour
 {
     public float clampDegrees = 75f;
-    private float mouseSensitivity = 200f;
+    public float mouseSensitivity = 200f;
 
     public Transform playerBody;
 
@@ -30,10 +30,10 @@ public class MouseLook : MonoBehaviour
 
         if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
         {
-            mouseSensitivity = mouseSensitivity + 0.5f;
+            mouseSensitivity = mouseSensitivity + 0.1f;
         } else if(Input.GetKey(KeyCode.KeypadMinus) || Input.GetKey(KeyCode.Minus))
         {
-            mouseSensitivity = mouseSensitivity - 0.5f;
+            mouseSensitivity = mouseSensitivity - 0.1f;
         }
         
         if(mouseSensitivity < 50f)

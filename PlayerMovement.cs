@@ -67,14 +67,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     Camera fpsCam;
     Canvas canvas;
     HitMarker hitMarker;
+    MouseLook mouseLook;
 
     public PhotonView PV;
     public Text bulletsText;
     public Text lifeText;
+    public Text sensibilidadeText;
     public TMP_Text streakText;
 
 	void Awake()
 	{   
+        mouseLook = GetComponentInChildren<MouseLook>();
         fpsCam = GetComponentInChildren<Camera>();
 		rb = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
@@ -102,10 +105,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                         bulletsText = canvasItem[i];
                     else if(canvasItem[i].name == "Life")
                         lifeText = canvasItem[i];
+                    else if(canvasItem[i].name == "Sensibilidade")
+                        sensibilidadeText = canvasItem[i];
                 }
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
+                
             }
+
+            sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
+            sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
             streakText.text =  "0 Kill Streak";
             streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
             waitingForSpawn = false;
@@ -149,6 +158,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * speed * Time.deltaTime);
 
+        checkSensitivy();
+
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
@@ -180,6 +191,28 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     void OnAnimationChange(string anim)
     {
         bodyAnimator.Play(anim);
+    }
+
+    void checkSensitivy()
+    {
+        if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
+        {   
+            StopCoroutine(ExibeSensibilidade());
+            StartCoroutine(ExibeSensibilidade());
+        } else if(Input.GetKey(KeyCode.KeypadMinus) || Input.GetKey(KeyCode.Minus))
+        {   
+            StopCoroutine(ExibeSensibilidade());
+            StartCoroutine(ExibeSensibilidade());
+        }
+        
+    }   
+
+    IEnumerator ExibeSensibilidade()
+    {   
+        sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString("#.##");
+        sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 100f);
+        yield return new WaitForSeconds(3f);
+        sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     }
 
     void checkHands()
