@@ -65,8 +65,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     Canvas canvas;
     Text bulletsText;
     Text lifeText;
-
-
+    HitMarker hitMarker;
 
 
 	void Awake()
@@ -98,6 +97,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                     else if(canvasItem[i].name == "Life")
                         lifeText = canvasItem[i];
                 }
+                hitMarker = canvas.GetComponentInChildren<HitMarker>();
             }
             waitingForSpawn = false;
             currentAmmo = clipSize;
@@ -266,7 +266,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     
         if (Physics.Raycast(muzzleFlash.transform.position, fpsCam.transform.forward, out hit, range))
         {   
-
+            hitMarker.Hitted();
             if(hit.collider != null && hit.transform.tag == "Player"){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();

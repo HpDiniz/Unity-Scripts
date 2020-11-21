@@ -40,16 +40,15 @@ public class Bullet : MonoBehaviourPun
     IEnumerator DestroyObject()
     {   
         yield return new WaitForSeconds(destroyTime);
-        Destroy(this);
-        //PV.RPC("DestroyObj",RpcTarget.AllBuffered);
+        //Destroy(this);
+        PV.RPC("DestroyObj",RpcTarget.AllBuffered);
     }
 
-    /*
     [PunRPC]
     public void DestroyObj()
     {   
         Destroy(this.gameObject);   
-    }*/
+    }
     /*
     [PunRPC]
     public void UpdatePosition()
