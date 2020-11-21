@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class PlayerMovement : MonoBehaviourPunCallbacks
 {   
@@ -42,6 +43,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public float jumpHeight = 1.3f;
     public float groundDistance = 0.05f;
 
+    public int killStreak = 0;
     public int killCounter = 0;
     public int deathCounter = 0;
 
@@ -58,15 +60,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
+    AudioSource gireiSound;
+    AudioSource ameacaSound;
 	CharacterController rb;
     Transform heaven;
     Camera fpsCam;
-	public PhotonView PV;
     Canvas canvas;
-    Text bulletsText;
-    Text lifeText;
     HitMarker hitMarker;
 
+    public PhotonView PV;
+    public Text bulletsText;
+    public Text lifeText;
+    public TMP_Text streakText;
 
 	void Awake()
 	{   
@@ -81,9 +86,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
+        ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
+        gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
         updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
-
         updateRanking.UpdatePlayers();
         
         if(PV.IsMine)
@@ -98,7 +104,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                         lifeText = canvasItem[i];
                 }
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
+                streakText = canvas.GetComponentInChildren<TMP_Text>();
             }
+            streakText.text =  "0 Kill Streak";
+            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
             waitingForSpawn = false;
             currentAmmo = clipSize;
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
@@ -263,19 +272,32 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         this.GetComponent<PhotonView>().RPC("ShootSound",RpcTarget.Others);
 
         RaycastHit hit;
-    
-        if (Physics.Raycast(muzzleFlash.transform.position, fpsCam.transform.forward, out hit, range))
+
+        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, range))
         {   
-            hitMarker.Hitted();
-            if(hit.collider != null && hit.transform.tag == "Player"){
+            int amount = 0;
+            
+            if(hit.transform.tag == "PlayerHead")
+                amount = 40;
+            else if(hit.transform.tag == "PlayerTorso")
+                amount = 20;
+            else if(hit.transform.tag == "PlayerLegs")
+                amount = 15;
+            else if(hit.transform.tag == "PlayerFeet")
+                amount = 10;
+
+            Debug.Log(hit.transform.tag);
+            if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
+                    if(target.health > 0)
+                        hitMarker.Hitted();
 
                     object[] instanceData = new object[3];
-                    instanceData[0] = 20;
+                    instanceData[0] = amount;
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = this.PV.InstantiationId;
-
+                    
                     PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
                 }
             } else {
@@ -298,12 +320,60 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         } else if(runningAnim){
             handAnimator.Play("Run");
         } else if(idleAnim){
+            //StartCoroutine(RestoreLife());
             handAnimator.Play("Idle");
         }
     }
+    /*
+    public IEnumerator RestoreLife()
+    {
+        yield return new WaitForSeconds(5f);
+        if(this.health + 10 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 10;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 10 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 10;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 10 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 15;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 15 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 15;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 15 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 15;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 15 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 15;
+        yield return new WaitForSeconds(0.5f);
+        if(this.health + 20 > 100){
+            this.health = 100;
+            StopCoroutine(RestoreLife());
+        }else
+            this.health = this.health + 20;
+    } */
 
     IEnumerator ResetVariabels(PlayerMovement target) 
     {   
+        target.killStreak = 0;
         target.jumpingAnim = false;
         target.runningAnim = false;
         target.idleAnim = true;
@@ -328,6 +398,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         if(!PV.IsMine)
 			return;
+        
+        if(this.health <=0)
+            return;
+        /*
+        if(other.tag == "Gun")
+        {   
+            if(this.totalAmmo + 180 > 280)
+                this.totalAmmo = 280;
+            else
+                this.totalAmmo = this.totalAmmo + 180;
+
+            Destroy(other);
+            Debug.Log("Eh gun");
+        }*/
 
         if(other.tag == "Respawn")
         {  
@@ -360,12 +444,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                 
         }
         if(whoReceivedDamage)
-        {
+        {   
+            //whoReceivedDamage.StopCoroutine(RestoreLife());
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[0];
 
             if(whoReceivedDamage.health <= 0){
             
                 whoReceivedDamage.health = 0;
+
+                //PhotonNetwork.Instantiate("AkDroped",whoReceivedDamage.transform.position, Quaternion.identity);
 
                 Kill(whoReceivedDamage,whoCausedDamage);
             }   
@@ -389,9 +476,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         if(target.waitingForSpawn == false)
         {   
             target.deathCounter++;
-            PV.RPC("playGeralSound",RpcTarget.AllBuffered);
+            
             if(enemy != null && (enemy.PV.InstantiationId != target.PV.InstantiationId)){
                 enemy.killCounter ++;
+                enemy.killStreak ++;
+                CheckKillStreak(enemy);
+            } else {
+                PV.RPC("playDeathSound",RpcTarget.AllBuffered);
             }
             target.waitingForSpawn = true;
             updateRanking.UpdatePlayers();
@@ -400,10 +491,53 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
     }
 
+    IEnumerator exibeKillStreak(PlayerMovement player, string kills) 
+    {   
+        player.streakText.text =  kills + " Kill Streak";
+        player.streakText.color = new Color(player.streakText.color.r, player.streakText.color.g, player.streakText.color.b, 100f);
+        yield return new WaitForSeconds(4f);
+        player.streakText.color = new Color(player.streakText.color.r, player.streakText.color.g, player.streakText.color.b, 0f);
+        
+    }
+
+    void CheckKillStreak(PlayerMovement player)
+    {   
+        if(player.killStreak == 10){
+            if(this.PV.InstantiationId == player.PV.InstantiationId)
+                StartCoroutine(exibeKillStreak(player,"10"));
+            PV.RPC("playGireiSound",RpcTarget.AllBuffered);
+        } else if(player.killStreak == 5){
+            if(this.PV.InstantiationId == player.PV.InstantiationId)
+                StartCoroutine(exibeKillStreak(player,"5"));
+            PV.RPC("playAmeacaSound",RpcTarget.AllBuffered);
+        }else
+            PV.RPC("playDeathSound",RpcTarget.AllBuffered);
+        /*
+        else if(player.killStreak == 5){
+            StartCoroutine(exibeKillStreak(player,"5"));
+            PV.RPC("playGireiSound",RpcTarget.AllBuffered);
+        }*/
+        
+    }
     [PunRPC]
-    public void playGeralSound()
+    public void playDeathSound()
+    {   
+        if(!gireiSound.isPlaying)
+            aHeroHasFallen.Play(0);
+    }
+
+    [PunRPC]
+    public void playAmeacaSound()
+    {   
+        if(!ameacaSound.isPlaying && !gireiSound.isPlaying)
+            ameacaSound.Play(0);
+    }
+
+    [PunRPC]
+    public void playGireiSound()
     {
-        aHeroHasFallen.Play(0);
+        if(!gireiSound.isPlaying)
+            gireiSound.Play(0);
     }
 
 }

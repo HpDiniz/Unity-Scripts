@@ -5,7 +5,7 @@ using UnityEngine;
 public class MouseLook : MonoBehaviour
 {
     public float clampDegrees = 75f;
-    public float mouseSensitivity = 110f;
+    private float mouseSensitivity = 200f;
 
     public Transform playerBody;
 
@@ -27,5 +27,19 @@ public class MouseLook : MonoBehaviour
 
         transform.localRotation = Quaternion.Euler(xRotation,0f,0f);
         playerBody.Rotate(Vector3.up * mouseX);
+
+        if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
+        {
+            mouseSensitivity = mouseSensitivity + 0.5f;
+        } else if(Input.GetKey(KeyCode.KeypadMinus) || Input.GetKey(KeyCode.Minus))
+        {
+            mouseSensitivity = mouseSensitivity - 0.5f;
+        }
+        
+        if(mouseSensitivity < 50f)
+            mouseSensitivity = 50f;
+        else if(mouseSensitivity > 500f)
+            mouseSensitivity = 500f;
+            
     }
 }
