@@ -7,14 +7,11 @@ using UnityEngine.UI;
 
 public class PlayerMovement : MonoBehaviourPunCallbacks
 {   
-    // Player Hands variables
-
     private float meleeTime = 0.7f;
     private float reloadingTime = 3f;
 
     public float range = 100f;
     public float fireRate = 8f;
-    public GameObject bullettrail;
     public float impactForce = 20f;
 
     public int totalAmmo = 280;
@@ -22,8 +19,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public int currentAmmo;
     public int health = 100;
     public int damage = 20;
-
-    public float teste;
 
     public GameObject bulletObject;
     public AudioSource reloadSound;
@@ -34,8 +29,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     private float nextTimeToFire = 0f;
 
     public bool noGuns = false;
-
-    // Player Body variables
 
     public CharacterController controller;
     
@@ -68,11 +61,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 	CharacterController rb;
     Transform heaven;
     Camera fpsCam;
-	PhotonView PV;
+	public PhotonView PV;
     Canvas canvas;
     Text bulletsText;
     Text lifeText;
-    
+
+
+
 
 	void Awake()
 	{   
@@ -281,19 +276,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                     instanceData[2] = this.PV.InstantiationId;
 
                     PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
-                    //enemy.TakeDamage(20,this);
                 }
             } else {
                 PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
             }
         }
 
-        /*
-        object[] instanceData = new object[2];
-        instanceData[0] = directionWithoutSpread.normalized;
-        instanceData[1] = this.PV.InstantiationId;
-        PhotonNetwork.Instantiate ("BulletTrail",muzzleFlash.transform.position,Quaternion.identity,0,instanceData);
-        */
         shootingAnim = false;
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
@@ -344,7 +332,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
         if(other.tag == "Respawn")
         {   
-            Kill(this,null);
+            Kill(this,this);
         } else if(other.tag == "NoGuns")
         {
             noGuns = true;
@@ -355,25 +343,31 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public void TakeDamage(object[] instantiationData) //, PlayerMovement playerWhoShooted
     {   
 
-        if(this.PV.InstantiationId != (int) instantiationData[1])
-            return;
+        PlayerMovement whoReceivedDamage = null;
+        PlayerMovement whoCausedDamage = null;
 
-        this.health = this.health - (int)instantiationData[0];
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+        
+        foreach (PlayerMovement player in players)
+        {
+            if(player.PV.InstantiationId == (int) instantiationData[1])
+                whoReceivedDamage = player;
+            else if(player.PV.InstantiationId == (int) instantiationData[2])
+                whoCausedDamage = player;
+                
+        }
+        if(whoReceivedDamage)
+        {
+            whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[0];
 
-        if(this.health <= 0){
+            if(whoReceivedDamage.health <= 0){
             
-            this.health = 0;
+                whoReceivedDamage.health = 0;
 
-            PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
-
-            foreach (PlayerMovement player in players)
-            {
-                if(player.PV.InstantiationId == (int) instantiationData[2])
-                    Kill(this,player);
-            }
-
-            Kill(this,this);
-        }   
+                Kill(whoReceivedDamage,whoCausedDamage);
+            }   
+        }
+        
     }
 
     void OnTriggerExit(Collider other)
@@ -391,13 +385,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         if(target.waitingForSpawn == false)
         {   
-            updateRanking.UpdateCounter();
             target.deathCounter++;
             PV.RPC("playGeralSound",RpcTarget.AllBuffered);
             if(enemy != null && (enemy.PV.InstantiationId != target.PV.InstantiationId)){
                 enemy.killCounter ++;
             }
             target.waitingForSpawn = true;
+            updateRanking.UpdatePlayers();
             StartCoroutine(ResetVariabels(target));
         }
     }
