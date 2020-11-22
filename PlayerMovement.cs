@@ -257,7 +257,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {
         RaycastHit hit;
 
-        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, 1.2f))
+        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, 2f))
         {   
             int amount = 0;
 
@@ -333,6 +333,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         yield return new WaitForSeconds(0.25f);
 
         reloadingAnim = false;
+    }
+
+    void CreateIndicator(int id, Transform position)
+    {   
+        if(this.PV.InstantiationId != id)
+            return;
+            
+        DI_System.CreateIndicator(position);
     }
 
     void Shoot()
@@ -524,6 +532,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
         if(whoReceivedDamage)
         {   
+            CreateIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
             //whoReceivedDamage.StopCoroutine(RestoreLife());
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
