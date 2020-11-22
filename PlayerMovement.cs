@@ -265,19 +265,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             int amount = 0;
 
             if(hit.transform.tag == "PlayerHead")
-                amount = 80;
+                amount = 100;
             else if(hit.transform.tag == "PlayerTorso")
-                amount = 80;
+                amount = 100;
             else if(hit.transform.tag == "PlayerLegs")
-                amount = 80;
+                amount = 100;
             else if(hit.transform.tag == "PlayerFeet")
-                amount = 80;
+                amount = 100;
 
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
                     if(target.health > 0)
-                        hitMarker.Hitted();
+                        hitMarker.BodyHit();
 
                     object[] instanceData = new object[3];
                     instanceData[0] = amount;
@@ -350,20 +350,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             int amount = 0;
             
             if(hit.transform.tag == "PlayerHead")
-                amount = 40;
+                amount = 50;
             else if(hit.transform.tag == "PlayerTorso")
-                amount = 20;
+                amount = 25;
             else if(hit.transform.tag == "PlayerLegs")
-                amount = 15;
+                amount = 20;
             else if(hit.transform.tag == "PlayerFeet")
-                amount = 10;
+                amount = 15;
 
             Debug.Log(hit.transform.tag);
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
-                    if(target.health > 0)
-                        hitMarker.Hitted();
+                    if(target.health > 0){
+                        if(amount == 50)
+                            hitMarker.HeadshotHit();
+                        else
+                            hitMarker.BodyHit();
+                    }
 
                     object[] instanceData = new object[3];
                     instanceData[0] = amount;

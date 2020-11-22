@@ -21,7 +21,13 @@ public class HitMarker : MonoBehaviour
 
     }
 
-    public void Hitted()
+    public void HeadshotHit()
+    {   
+        StopAllCoroutines();
+        StartCoroutine(ShowHitMarkerHS());
+    }
+
+    public void BodyHit()
     {   
         StopAllCoroutines();
         StartCoroutine(ShowHitMarker());
@@ -31,8 +37,9 @@ public class HitMarker : MonoBehaviour
     {
         hitSound.Play(0);
         foreach (Image image in childrens)
-        {
-            image.color = principalColor;
+        {   
+            if(image.name != "Headshot")
+                image.color = principalColor;
         } 
         yield return new WaitForSeconds(0.25f);
         FadeOut();
@@ -41,7 +48,27 @@ public class HitMarker : MonoBehaviour
     void FadeOut()
     {  
         foreach (Image image in childrens)
-        {
+        {   
+            if(image.name != "Headshot")
+                image.color = fadedColor;//Color.Lerp(fadedColor, principalColor, fadeTime * Time.deltaTime);
+        } 
+    }
+
+    IEnumerator ShowHitMarkerHS()
+    {
+        hitSound.Play(0);
+        foreach (Image image in childrens)
+        {   
+            image.color = principalColor;
+        } 
+        yield return new WaitForSeconds(0.25f);
+        FadeOutHS();
+    }
+
+    void FadeOutHS()
+    {  
+        foreach (Image image in childrens)
+        {   
             image.color = fadedColor;//Color.Lerp(fadedColor, principalColor, fadeTime * Time.deltaTime);
         } 
     }
