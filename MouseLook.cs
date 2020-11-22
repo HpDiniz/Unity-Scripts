@@ -35,6 +35,11 @@ public class MouseLook : MonoBehaviour
         {
             mouseSensitivity = mouseSensitivity - 0.2f;
         }
+
+        if(Input.GetKey(KeyCode.Escape))
+        {
+            Application.Quit();
+        }
         
         if(mouseSensitivity < 50f)
             mouseSensitivity = 50f;

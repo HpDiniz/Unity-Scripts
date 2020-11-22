@@ -234,6 +234,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             }
         }
         else if(Input.GetKeyDown(KeyCode.F)){
+            MeleeAttack();
             StartCoroutine(Melee());
         } 
         else if(Input.GetButton("Fire1") && Time.time >= nextTimeToFire)
@@ -253,6 +254,40 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
         
 
+    }
+
+    void MeleeAttack()
+    {
+        RaycastHit hit;
+
+        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, 1.2f))
+        {   
+            int amount = 0;
+
+            if(hit.transform.tag == "PlayerHead")
+                amount = 80;
+            else if(hit.transform.tag == "PlayerTorso")
+                amount = 80;
+            else if(hit.transform.tag == "PlayerLegs")
+                amount = 80;
+            else if(hit.transform.tag == "PlayerFeet")
+                amount = 80;
+
+            if(amount != 0 ){
+                if(hit.transform.gameObject){
+                    PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
+                    if(target.health > 0)
+                        hitMarker.Hitted();
+
+                    object[] instanceData = new object[3];
+                    instanceData[0] = amount;
+                    instanceData[1] = target.PV.InstantiationId;
+                    instanceData[2] = this.PV.InstantiationId;
+                    
+                    PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
+                }
+            }
+        }
     }
 
     IEnumerator Reload()
