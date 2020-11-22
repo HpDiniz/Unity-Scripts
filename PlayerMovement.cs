@@ -66,6 +66,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     Canvas canvas;
     HitMarker hitMarker;
     MouseLook mouseLook;
+    DI_System damageIndicator;
 
     public PhotonView PV;
     public Text bulletsText;
@@ -107,6 +108,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                 }
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
+                damageIndicator = canvas.GetComponent<DI_System>();
                 
             }
 
@@ -277,9 +279,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                         hitMarker.BodyHit();
 
                     object[] instanceData = new object[3];
-                    instanceData[0] = amount;
+                    instanceData[0] = this.PV.InstantiationId;
                     instanceData[1] = target.PV.InstantiationId;
-                    instanceData[2] = this.PV.InstantiationId;
+                    instanceData[2] = amount;
                     
                     PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
                 }
@@ -335,12 +337,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         reloadingAnim = false;
     }
 
-    void CreateIndicator(int id, Transform position)
-    {   
+    void CreateDamageIndicator(int id, Transform position)
+    {      
+
         if(this.PV.InstantiationId != id)
             return;
-            
-        DI_System.CreateIndicator(position);
+
+        if(!PV.IsMine)
+			return;
+
+        damageIndicator.CreateIndicator(position);
     }
 
     void Shoot()
@@ -371,7 +377,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             else if(hit.transform.tag == "PlayerFeet")
                 amount = 15;
 
-            Debug.Log(hit.transform.tag);
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
@@ -384,7 +389,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                     
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = amount;
-                    
                     PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
                 }
             } else {
@@ -516,7 +520,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     [PunRPC]
     public void TakeDamage(object[] instantiationData) //, PlayerMovement playerWhoShooted
     {   
-
         PlayerMovement whoReceivedDamage = null;
         PlayerMovement whoCausedDamage = null;
 
@@ -532,7 +535,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
         if(whoReceivedDamage)
         {   
-            CreateIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
+            Debug.Log(whoReceivedDamage.PV.InstantiationId.ToString() + " " + PV.InstantiationId.ToString());
+            if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
+                whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
             //whoReceivedDamage.StopCoroutine(RestoreLife());
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 

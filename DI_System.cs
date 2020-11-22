@@ -13,8 +13,8 @@ public class DI_System : MonoBehaviour
 
     private Dictionary<Transform, DamageIndicator> Indicators = new Dictionary<Transform, DamageIndicator>();
 
-    public static Action<Transform> CreateIndicator = delegate {};
-    public static Func<Transform, bool> CheckIfObjectInSight = null;
+    public Action<Transform> CreateIndicator = delegate {};
+    public Func<Transform, bool> CheckIfObjectInSight = null;
 
     private void OnEnable()
     {
