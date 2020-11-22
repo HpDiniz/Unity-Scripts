@@ -32,7 +32,7 @@ public class HitMarker : MonoBehaviour
         StopAllCoroutines();
         StartCoroutine(ShowHitMarker());
     }
-
+    
     IEnumerator ShowHitMarker()
     {
         hitSound.Play(0);
@@ -45,14 +45,6 @@ public class HitMarker : MonoBehaviour
         FadeOut();
     }
 
-    void FadeOut()
-    {  
-        foreach (Image image in childrens)
-        {   
-            if(image.name != "Headshot")
-                image.color = fadedColor;//Color.Lerp(fadedColor, principalColor, fadeTime * Time.deltaTime);
-        } 
-    }
 
     IEnumerator ShowHitMarkerHS()
     {
@@ -62,14 +54,16 @@ public class HitMarker : MonoBehaviour
             image.color = principalColor;
         } 
         yield return new WaitForSeconds(0.25f);
-        FadeOutHS();
+        FadeOut();
     }
 
-    void FadeOutHS()
+    void FadeOut()
     {  
         foreach (Image image in childrens)
         {   
             image.color = fadedColor;//Color.Lerp(fadedColor, principalColor, fadeTime * Time.deltaTime);
         } 
     }
+
+
 }

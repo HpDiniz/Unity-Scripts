@@ -22,8 +22,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public int damage = 20;
 
     public GameObject bulletObject;
-    public AudioSource reloadSound;
-    public AudioSource shootSound;
     public ParticleSystem muzzleFlash;
     public GameObject impactEffect;
 
@@ -87,7 +85,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     void Start()
     {   
-        
+        /*
+        AudioSource [] audios = fpsCam.GetComponentsInChildren<AudioSource>();
+
+        for(int i = 0; i< audios.Length; i++){
+            if(audios[i].name == "akFire"){
+                shootSound = audios[i];
+            }
+            else if(audios[i].name == "akreload"){
+                reloadSound = audios[i];
+            }
+        } */
+
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
@@ -294,7 +303,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         reloadingAnim = true;
         handAnimator.SetBool("Reloading", true);
-        reloadSound.Play(0);
+
+        object[] data = new object[1];
+        data[0] = 1;
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,data);
+
         yield return new WaitForSeconds(reloadingTime);
 
         handAnimator.SetBool("Reloading", false);
@@ -327,21 +340,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         reloadingAnim = false;
     }
 
-    [PunRPC]
-    public void ShootSound()
-    {
-        //shootSound.Play(0);
-    }
-
-
     void Shoot()
     {   
         shootingAnim = true;
         muzzleFlash.Play();
 
         currentAmmo--;
-        shootSound.Play(0);
-        this.GetComponent<PhotonView>().RPC("ShootSound",RpcTarget.Others);
+
+        object[] data = new object[1];
+        data[0] = 0;
+
+        Debug.Log(this.transform.position.ToString());
+
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,data);
 
         RaycastHit hit;
 
@@ -368,11 +379,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                         else
                             hitMarker.BodyHit();
                     }
-
                     object[] instanceData = new object[3];
-                    instanceData[0] = amount;
+                    instanceData[0] = this.PV.InstantiationId;
                     instanceData[1] = target.PV.InstantiationId;
-                    instanceData[2] = this.PV.InstantiationId;
+                    instanceData[2] = amount;
                     
                     PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
                 }
@@ -492,9 +502,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         if(other.tag == "Respawn")
         {  
             object[] instanceData = new object[3];
-            instanceData[0] = 100;
+            instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
-            instanceData[2] = this.PV.InstantiationId;
+            instanceData[2] = 100;
             PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
         } else if(other.tag == "NoGuns")
         {
@@ -513,16 +523,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         
         foreach (PlayerMovement player in players)
         {
+            if(player.PV.InstantiationId == (int) instantiationData[0])
+                whoCausedDamage = player;
             if(player.PV.InstantiationId == (int) instantiationData[1])
                 whoReceivedDamage = player;
-            if(player.PV.InstantiationId == (int) instantiationData[2])
-                whoCausedDamage = player;
                 
         }
         if(whoReceivedDamage)
         {   
             //whoReceivedDamage.StopCoroutine(RestoreLife());
-            whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[0];
+            whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
             if(whoReceivedDamage.health <= 0){
             

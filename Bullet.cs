@@ -32,7 +32,8 @@ public class Bullet : MonoBehaviourPun
     // Start is called before the first frame update
     void Start()
     {   
-        StartCoroutine(DestroyObject());
+        Destroy(this.gameObject,2f);
+        //StartCoroutine(DestroyObject());
     }
 
     // Update is called once per frame
