@@ -6,6 +6,7 @@ using UnityEngine;
 public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
 {   
     PhotonView PV;
+    PlayerMovement playerPosition;
     AudioSource [] audios;
     int audioIndex;
 
@@ -19,7 +20,16 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
         
         object[] instantiationData = info.photonView.InstantiationData;
 
-        audioIndex = (int) instantiationData[0];
+        audioIndex = (int) instantiationData[1];
+
+
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+        
+        foreach (PlayerMovement player in players)
+        {
+            if(player.PV.InstantiationId == (int)instantiationData[0])
+                playerPosition = player;
+        }
         
     }
     // Start is called before the first frame update
@@ -29,6 +39,11 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
         Debug.Log(this.transform.position.ToString());
         audios = this.GetComponentsInChildren<AudioSource>();
         audios[audioIndex].Play(0);
-        Destroy(this.gameObject,2f);
+        Destroy(this.gameObject,4f);
+    }
+
+    void Update()
+    {
+        this.transform.position = playerPosition.transform.position;
     }
 }

@@ -85,18 +85,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     void Start()
     {   
-        /*
-        AudioSource [] audios = fpsCam.GetComponentsInChildren<AudioSource>();
-
-        for(int i = 0; i< audios.Length; i++){
-            if(audios[i].name == "akFire"){
-                shootSound = audios[i];
-            }
-            else if(audios[i].name == "akreload"){
-                reloadSound = audios[i];
-            }
-        } */
-
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
@@ -304,9 +292,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         reloadingAnim = true;
         handAnimator.SetBool("Reloading", true);
 
-        object[] data = new object[1];
-        data[0] = 1;
-        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,data);
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = 1;
+
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
         yield return new WaitForSeconds(reloadingTime);
 
@@ -331,6 +321,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     {   
         reloadingAnim = true;
         handAnimator.SetBool("Meleeing", true);
+
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = 2;
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         yield return new WaitForSeconds(meleeTime);
 
         handAnimator.SetBool("Meleeing", false);
@@ -347,12 +342,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
         currentAmmo--;
 
-        object[] data = new object[1];
-        data[0] = 0;
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = 0;
 
-        Debug.Log(this.transform.position.ToString());
-
-        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,data);
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
         RaycastHit hit;
 
@@ -379,8 +373,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                         else
                             hitMarker.BodyHit();
                     }
-                    object[] instanceData = new object[3];
-                    instanceData[0] = this.PV.InstantiationId;
+                    
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = amount;
                     
