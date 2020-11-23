@@ -35,8 +35,6 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
     // Start is called before the first frame update
     void Start()
     {   
-
-        Debug.Log(this.transform.position.ToString());
         audios = this.GetComponentsInChildren<AudioSource>();
         audios[audioIndex].Play(0);
         Destroy(this.gameObject,4f);

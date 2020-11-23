@@ -26,6 +26,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public GameObject impactEffect;
 
     private float nextTimeToFire = 0f;
+    private float nextTimeToRun = 0f;
 
     public bool noGuns = false;
 
@@ -36,7 +37,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public Transform groundCheck;
     public LayerMask groundMask;
     
-    public float speed = 7f;
+    public float speed = 5.5f;
     public float gravity = -19.62f;
     public float jumpHeight = 1.3f;
     public float groundDistance = 0.05f;
@@ -52,9 +53,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     public bool jumpingAnim = false;
     public bool runningAnim = false;
+    public bool sprintingAnim = false;
     public bool idleAnim = true;
     public bool reloadingAnim = false;
     public bool shootingAnim = false;
+
+    bool startSprintAnim = false;
+    bool stopSprintAnim = false;
 
     UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
@@ -62,10 +67,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     AudioSource ameacaSound;
 	CharacterController rb;
     Transform heaven;
-    Camera fpsCam;
+    Vector3 move;
+    public Camera fpsCam;
     Canvas canvas;
     HitMarker hitMarker;
-    MouseLook mouseLook;
+    public MouseLook mouseLook;
     DI_System damageIndicator;
 
     public PhotonView PV;
@@ -95,6 +101,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         
         if(PV.IsMine)
 		{   
+            GameObject.Find("AkGhost").SetActive(false);
             if(canvas){
                 Text [] canvasItem = canvas.GetComponentsInChildren<Text>();
 
@@ -154,7 +161,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
             velocity.y = -2f;
         }
 
-        Vector3 move = transform.right * x + transform.forward * z;
+        move = transform.right * x + transform.forward * z;
         controller.Move(move * speed * Time.deltaTime);
 
         checkSensitivy();
@@ -218,6 +225,25 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
 
+    IEnumerator StopSprinting()
+    {   
+        stopSprintAnim = true;
+        handAnimator.Play("Sprint-to-Run");
+        yield return new WaitForSeconds(0.25f);
+        stopSprintAnim = false;
+        sprintingAnim = false;
+        this.speed = 5.5f;
+    } 
+    IEnumerator StartSprinting()
+    {   
+        startSprintAnim = true;
+        handAnimator.Play("Run-to-Sprint");
+        yield return new WaitForSeconds(0.25f);
+        startSprintAnim = false;
+        sprintingAnim = true;
+        this.speed = 7.5f;
+    } 
+
     void checkHands()
     {   
         if(noGuns)
@@ -248,10 +274,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                 CheckAnimation();
             }
 
-        } else{
+        }
+        else if(Input.GetKeyDown(KeyCode.LeftShift) && Time.time >= nextTimeToRun && (move.magnitude != 0f)) 
+        {   
+            nextTimeToRun= Time.time + 0.25f;
+            if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
+                StartCoroutine(StartSprinting());
+                CheckAnimation();
+            }
+        }else if(Input.GetKeyUp(KeyCode.LeftShift) && Time.time >= nextTimeToRun)
+        {   
+            if(sprintingAnim || startSprintAnim){
+                nextTimeToRun= Time.time + 0.25f;
+                StartCoroutine(StopSprinting());
+                CheckAnimation();
+            }
+        }else{
             CheckAnimation();
         }
-        
 
     }
 
@@ -403,12 +443,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     void CheckAnimation()
     {   
-        if(shootingAnim)
+        if(startSprintAnim){
             return;
+        } else if(stopSprintAnim){
+            return;
+        }
         
         if(jumpingAnim){
             handAnimator.Play("Idle");
-        } else if(runningAnim){
+        } else if(sprintingAnim){
+            handAnimator.Play("Sprint");
+        }else if(runningAnim){
             handAnimator.Play("Run");
         } else if(idleAnim){
             //StartCoroutine(RestoreLife());
@@ -535,7 +580,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
         if(whoReceivedDamage)
         {   
-            Debug.Log(whoReceivedDamage.PV.InstantiationId.ToString() + " " + PV.InstantiationId.ToString());
+            //Debug.Log(whoReceivedDamage.PV.InstantiationId.ToString() + " " + PV.InstantiationId.ToString());
             if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
                 whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
             //whoReceivedDamage.StopCoroutine(RestoreLife());

@@ -5,14 +5,16 @@ using UnityEngine;
 
 public class DamageIndicator : MonoBehaviour
 {   
-    private const float MaxTimer = 8f;
+    private const float MaxTimer = 1f;
     private float timer = MaxTimer;
     
     private CanvasGroup canvasGroup = null;
     protected CanvasGroup CanvasGroup
     {
         get
-        {
+        {   
+            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            
             if(canvasGroup == null)
             {
                 canvasGroup = GetComponent<CanvasGroup>();
@@ -21,6 +23,7 @@ public class DamageIndicator : MonoBehaviour
                     canvasGroup = gameObject.AddComponent<CanvasGroup>();
                 }
             }
+            
             return canvasGroup;
         }
     }
@@ -29,7 +32,10 @@ public class DamageIndicator : MonoBehaviour
     protected RectTransform Rect
     {
         get
-        {
+        {   
+            //Debug.Log("RectTransform");
+            rect = gameObject.AddComponent<RectTransform>();
+            
             if(rect == null)
             {
                 rect = GetComponent<RectTransform>();
@@ -38,6 +44,7 @@ public class DamageIndicator : MonoBehaviour
                     rect = gameObject.AddComponent<RectTransform>();
                 }
             }
+            
             return rect;
         }
     }
@@ -56,6 +63,8 @@ public class DamageIndicator : MonoBehaviour
         this.Target = target;
         this.player = player;
         this.unRegister = unRegister;
+
+        //Debug.Log("Register");
 
         StartCoroutine(RotateToTheTarget());
         StartTimer();
@@ -76,8 +85,8 @@ public class DamageIndicator : MonoBehaviour
 
     IEnumerator RotateToTheTarget()
     {
-        while(enabled)
-        {
+        //while(enabled)
+        //{
             if(Target)
             {
                 tPos = Target.position;
@@ -94,7 +103,7 @@ public class DamageIndicator : MonoBehaviour
             Rect.localRotation = tRot * Quaternion.Euler(northDirection);
 
             yield return null;
-        }
+        //}
     }
 
     private IEnumerator Countdown()
@@ -107,7 +116,7 @@ public class DamageIndicator : MonoBehaviour
         while(timer > 0)
         {
             timer--;
-            yield return new WaitForSeconds(1);
+            yield return new WaitForSeconds(0.5f);
         }
         while(CanvasGroup.alpha > 0f)
         {

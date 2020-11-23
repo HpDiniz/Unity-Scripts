@@ -14,17 +14,14 @@ public class DI_System : MonoBehaviour
     private Dictionary<Transform, DamageIndicator> Indicators = new Dictionary<Transform, DamageIndicator>();
 
     public Action<Transform> CreateIndicator = delegate {};
-    public Func<Transform, bool> CheckIfObjectInSight = null;
 
     private void OnEnable()
     {
         CreateIndicator += Create;
-        CheckIfObjectInSight += InSight;
     }
     private void OnDisable()
     {
         CreateIndicator -= Create;
-        CheckIfObjectInSight -= InSight;
     }
     void Create(Transform target)
     {
@@ -38,9 +35,5 @@ public class DI_System : MonoBehaviour
 
         Indicators.Add(target, newIndicator);
     }
-    bool InSight(Transform t)
-    {
-        Vector3 screenPoint = camera.WorldToViewportPoint(t.position);
-        return screenPoint.z > 0 && screenPoint.x > 0 && screenPoint.x < 1 && screenPoint.y > 0 && screenPoint.y < 0;
-    }
+
 }
