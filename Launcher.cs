@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Photon.Pun;
+using UnityEngine.UI;
 using TMPro;
 using Photon.Realtime;
 using System.Linq;
@@ -18,16 +19,24 @@ public class Launcher : MonoBehaviourPunCallbacks
 	[SerializeField] Transform playerListContent;
 	[SerializeField] GameObject PlayerListItemPrefab;
 	[SerializeField] GameObject startGameButton;
+	[SerializeField] TMP_Text nickText;
+
+	string[] randomNick = {"Corno", "Crackudo", "Travesti", "Cavala", "Ribs", "Naruto", "Makonhero", "Noia"};
 
 	void Awake()
 	{
-		Instance = this;
+		Instance = this;//Nickname
 	}
 
 	void Start()
 	{
 		Debug.Log("Connecting to Master");
 		PhotonNetwork.ConnectUsingSettings();
+	}
+
+	public void InsertNick()
+	{		
+		PhotonNetwork.NickName = nickText.text;
 	}
 
 	public override void OnConnectedToMaster()
@@ -41,7 +50,8 @@ public class Launcher : MonoBehaviourPunCallbacks
 	{
 		MenuManager.Instance.OpenMenu("title");
 		Debug.Log("Joined Lobby");
-		PhotonNetwork.NickName = "Player " + Random.Range(0, 1000).ToString("0000");
+		if(string.IsNullOrEmpty(PhotonNetwork.NickName))
+			PhotonNetwork.NickName = randomNick[Random.Range(0, randomNick.Length-1)] + Random.Range(0, 1000).ToString("000");
 	}
 
 	public void CreateRoom()

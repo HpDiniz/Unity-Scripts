@@ -46,7 +46,7 @@ public class UpdateRanking : MonoBehaviourPunCallbacks
             if(i > 2)
                 break;
             playerRanking[i].gameObject.SetActive(true);
-            playerRanking[i].text = "   " + players[i].PV.InstantiationId + " " + players[i].killCounter.ToString() + "/" + players[i].deathCounter.ToString();
+            playerRanking[i].text = "   " + players[i].Nickname + " " + players[i].killCounter.ToString() + "/" + players[i].deathCounter.ToString();
         }
     }
 

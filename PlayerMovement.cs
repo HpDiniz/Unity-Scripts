@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class PlayerMovement : MonoBehaviourPunCallbacks
+public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCallback
 {   
     private float meleeTime = 0.7f;
     private float reloadingTime = 3f;
@@ -37,7 +37,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public Transform groundCheck;
     public LayerMask groundMask;
     
-    public float speed = 5.5f;
+    float speed = 5.0f;
     public float gravity = -19.62f;
     public float jumpHeight = 1.3f;
     public float groundDistance = 0.05f;
@@ -55,7 +55,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public bool runningAnim = false;
     public bool sprintingAnim = false;
     public bool idleAnim = true;
-    public bool reloadingAnim = false;
+    public bool reloadingMeleeAnim = false;
     public bool shootingAnim = false;
 
     bool startSprintAnim = false;
@@ -66,6 +66,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     AudioSource gireiSound;
     AudioSource ameacaSound;
 	CharacterController rb;
+    CanvasGroup aimPoint;
     Transform heaven;
     Vector3 move;
     public Camera fpsCam;
@@ -79,6 +80,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
     public Text lifeText;
     public Text sensibilidadeText;
     public TMP_Text streakText;
+
+
+    public string Nickname;
+
+
+    public void OnPhotonInstantiate(PhotonMessageInfo info)
+    {   
+        object[] instantiationData = info.photonView.InstantiationData;
+
+        Nickname = (string) instantiationData[0];
+    }
 
 	void Awake()
 	{   
@@ -113,9 +125,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
                     else if(canvasItem[i].name == "Sensibilidade")
                         sensibilidadeText = canvasItem[i];
                 }
+                aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
                 damageIndicator = canvas.GetComponent<DI_System>();
+                aimPoint.alpha = 1f;
                 
             }
 
@@ -177,18 +191,29 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         
             
         if(jumpingAnim){
+            if(sprintingAnim || stopSprintAnim)
+                CancelSprint();
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Jump");
             bodyAnimator.Play("Jump");
         }else if(move.magnitude != 0f){  
             runningAnim = true;
             idleAnim = false;
-            PV.RPC("OnAnimationChange",RpcTarget.Others,"Run");
-            bodyAnimator.Play("Run");
+            if(sprintingAnim){
+                PV.RPC("OnAnimationChange",RpcTarget.Others,"Sprint");
+                bodyAnimator.Play("Sprint");
+            } else {
+                PV.RPC("OnAnimationChange",RpcTarget.Others,"Run");
+                bodyAnimator.Play("Run");
+            }
         } else {
-            idleAnim = true;
-            runningAnim = false;
-            PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
-            bodyAnimator.Play("Idle");
+            if(sprintingAnim || stopSprintAnim)
+                StartCoroutine(StopSprinting());
+            else {
+                idleAnim = true;
+                runningAnim = false;
+                PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
+                bodyAnimator.Play("Idle");
+            }
         }
         
     }
@@ -224,24 +249,30 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         yield return new WaitForSeconds(3f);
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
-
+    
+    void CancelSprint()
+    {
+        stopSprintAnim = false;
+        sprintingAnim = false;
+        this.speed = 5.0f;
+        aimPoint.alpha = 1f;
+    }
     IEnumerator StopSprinting()
     {   
         stopSprintAnim = true;
         handAnimator.Play("Sprint-to-Run");
-        yield return new WaitForSeconds(0.25f);
-        stopSprintAnim = false;
-        sprintingAnim = false;
-        this.speed = 5.5f;
+        yield return new WaitForSeconds(0.18f);
+        CancelSprint();
     } 
     IEnumerator StartSprinting()
     {   
+        aimPoint.alpha = 0f;
         startSprintAnim = true;
         handAnimator.Play("Run-to-Sprint");
-        yield return new WaitForSeconds(0.25f);
+        yield return new WaitForSeconds(0.18f);
         startSprintAnim = false;
         sprintingAnim = true;
-        this.speed = 7.5f;
+        this.speed = 6.5f;
     } 
 
     void checkHands()
@@ -249,27 +280,43 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         if(noGuns)
             return;
 
-        if(reloadingAnim)
+        if(reloadingMeleeAnim)
             return;
-
-        if(Input.GetKeyDown(KeyCode.R)){
-            if(totalAmmo > 0){
-                if(clipSize != currentAmmo)
-                    StartCoroutine(Reload());
+        
+        if(Input.GetKeyDown(KeyCode.F)){
+            if(sprintingAnim || stopSprintAnim){
+                CancelSprint();
             }
-        }
-        else if(Input.GetKeyDown(KeyCode.F)){
             MeleeAttack();
             StartCoroutine(Melee());
+        }
+        else if(Input.GetKeyDown(KeyCode.R)){
+            if(totalAmmo > 0){
+                if(clipSize != currentAmmo){
+                    if(sprintingAnim || stopSprintAnim){
+                        CancelSprint();
+                    }
+                    StartCoroutine(Reload());
+                }
+            }
         } 
         else if(Input.GetButton("Fire1") && Time.time >= nextTimeToFire)
         {   
             if(currentAmmo > 0){
-                nextTimeToFire = Time.time + 1f/fireRate;
-                Shoot();
+                if(sprintingAnim || stopSprintAnim){
+                    StartCoroutine(StopSprinting());
+                }
+                if(!stopSprintAnim){
+                    nextTimeToFire = Time.time + 1f/fireRate;
+                    Shoot();
+                }
             } else if(totalAmmo > 0){
-                if(clipSize != currentAmmo)
+                if(clipSize != currentAmmo){
+                    if(sprintingAnim || stopSprintAnim){
+                        CancelSprint();
+                    }
                     StartCoroutine(Reload());
+                }
             } else{
                 CheckAnimation();
             }
@@ -277,18 +324,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         }
         else if(Input.GetKeyDown(KeyCode.LeftShift) && Time.time >= nextTimeToRun && (move.magnitude != 0f)) 
         {   
-            nextTimeToRun= Time.time + 0.25f;
-            if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
+            if(sprintingAnim || stopSprintAnim)
+                StartCoroutine(StopSprinting());
+            else if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
+                nextTimeToRun= Time.time + 0.25f;
                 StartCoroutine(StartSprinting());
                 CheckAnimation();
             }
         }else if(Input.GetKeyUp(KeyCode.LeftShift) && Time.time >= nextTimeToRun)
-        {   
+        {   /*
             if(sprintingAnim || startSprintAnim){
                 nextTimeToRun= Time.time + 0.25f;
                 StartCoroutine(StopSprinting());
                 CheckAnimation();
-            }
+            }*/
         }else{
             CheckAnimation();
         }
@@ -331,7 +380,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     IEnumerator Reload()
     {   
-        reloadingAnim = true;
+        reloadingMeleeAnim = true;
         handAnimator.SetBool("Reloading", true);
 
         object[] instanceData = new object[3];
@@ -353,7 +402,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
         else 
             currentAmmo = System.Math.Abs(clip);
         
-        reloadingAnim = false;
+        reloadingMeleeAnim = false;
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
         
@@ -361,7 +410,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     IEnumerator Melee()
     {   
-        reloadingAnim = true;
+        reloadingMeleeAnim = true;
         handAnimator.SetBool("Meleeing", true);
 
         object[] instanceData = new object[3];
@@ -374,7 +423,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
         yield return new WaitForSeconds(0.25f);
 
-        reloadingAnim = false;
+        reloadingMeleeAnim = false;
     }
 
     void CreateDamageIndicator(int id, Transform position)
@@ -443,6 +492,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks
 
     void CheckAnimation()
     {   
+        if(reloadingMeleeAnim)
+            return;
         if(startSprintAnim){
             return;
         } else if(stopSprintAnim){
