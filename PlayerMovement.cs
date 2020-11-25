@@ -81,7 +81,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     public Text sensibilidadeText;
     public TMP_Text streakText;
 
-
     public string Nickname;
 
 
@@ -153,7 +152,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     // Update is called once per frame
     void Update()
-    {   
+    {       
         if(!PV.IsMine)
 			return;
 
@@ -182,6 +181,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
+            if(startSprintAnim)
+                return;
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpingAnim = true;
         }
@@ -192,7 +193,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
         if(jumpingAnim){
             if(sprintingAnim || stopSprintAnim)
-                CancelSprint();
+                return;//CancelSprint();
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Jump");
             bodyAnimator.Play("Jump");
         }else if(move.magnitude != 0f){  
@@ -256,20 +257,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sprintingAnim = false;
         this.speed = 5.0f;
         aimPoint.alpha = 1f;
+        handAnimator.SetBool("Sprint-to-Run", false);
     }
     IEnumerator StopSprinting()
     {   
         stopSprintAnim = true;
-        handAnimator.Play("Sprint-to-Run");
+        //handAnimator.Play("Sprint-to-Run");
+
+        handAnimator.SetBool("Sprint-to-Run", true);
         yield return new WaitForSeconds(0.18f);
         CancelSprint();
     } 
     IEnumerator StartSprinting()
     {   
-        aimPoint.alpha = 0f;
+        
         startSprintAnim = true;
         handAnimator.Play("Run-to-Sprint");
         yield return new WaitForSeconds(0.18f);
+        aimPoint.alpha = 0f;
         startSprintAnim = false;
         sprintingAnim = true;
         this.speed = 6.5f;
@@ -277,13 +282,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void checkHands()
     {   
-        if(noGuns)
+        if(startSprintAnim)
             return;
 
         if(reloadingMeleeAnim)
             return;
-        
+
         if(Input.GetKeyDown(KeyCode.F)){
+            if(noGuns)
+                return;
             if(sprintingAnim || stopSprintAnim){
                 CancelSprint();
             }
@@ -291,6 +298,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             StartCoroutine(Melee());
         }
         else if(Input.GetKeyDown(KeyCode.R)){
+            if(noGuns)
+                return;
             if(totalAmmo > 0){
                 if(clipSize != currentAmmo){
                     if(sprintingAnim || stopSprintAnim){
@@ -302,6 +311,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         } 
         else if(Input.GetButton("Fire1") && Time.time >= nextTimeToFire)
         {   
+            if(noGuns)
+                return;
             if(currentAmmo > 0){
                 if(sprintingAnim || stopSprintAnim){
                     StartCoroutine(StopSprinting());
@@ -321,23 +332,30 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 CheckAnimation();
             }
 
-        }
-        else if(Input.GetKeyDown(KeyCode.LeftShift) && Time.time >= nextTimeToRun && (move.magnitude != 0f)) 
+        } else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == false && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded){
+            //Debug.Log("1");
+            //return;
+            StartCoroutine(StopSprinting());
+
+            
+        } else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == true && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded) 
         {   
-            if(sprintingAnim || stopSprintAnim)
-                StartCoroutine(StopSprinting());
-            else if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
-                nextTimeToRun= Time.time + 0.25f;
-                StartCoroutine(StartSprinting());
-                CheckAnimation();
+            Debug.Log("2");
+            if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
+                //if(!jumpingAnim){
+                    nextTimeToRun= Time.time + 0.25f;
+                    StartCoroutine(StartSprinting());
+                    CheckAnimation();
+                //}
             }
         }else if(Input.GetKeyUp(KeyCode.LeftShift) && Time.time >= nextTimeToRun)
-        {   /*
+        {   
+            Debug.Log("3");
             if(sprintingAnim || startSprintAnim){
                 nextTimeToRun= Time.time + 0.25f;
                 StartCoroutine(StopSprinting());
                 CheckAnimation();
-            }*/
+            }
         }else{
             CheckAnimation();
         }
@@ -501,7 +519,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
         
         if(jumpingAnim){
-            handAnimator.Play("Idle");
+            if(sprintingAnim || stopSprintAnim)
+                return;
+            else
+                handAnimator.Play("Idle");
         } else if(sprintingAnim){
             handAnimator.Play("Sprint");
         }else if(runningAnim){
