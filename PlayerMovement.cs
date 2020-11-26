@@ -181,8 +181,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
-            if(startSprintAnim)
-                return;
+            //if(startSprintAnim)
+            //    return;
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpingAnim = true;
         }
@@ -192,8 +192,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
             
         if(jumpingAnim){
+            /*
             if(sprintingAnim || stopSprintAnim)
-                return;//CancelSprint();
+                return;//CancelSprint(); */
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Jump");
             bodyAnimator.Play("Jump");
         }else if(move.magnitude != 0f){  
@@ -207,14 +208,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bodyAnimator.Play("Run");
             }
         } else {
+            /*if(stopSprintAnim)
+                return;
             if(sprintingAnim || stopSprintAnim)
-                StartCoroutine(StopSprinting());
-            else {
+                StartCoroutine(StopSprinting());*/
+            
                 idleAnim = true;
                 runningAnim = false;
                 PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
                 bodyAnimator.Play("Idle");
-            }
+            
         }
         
     }
@@ -257,15 +260,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sprintingAnim = false;
         this.speed = 5.0f;
         aimPoint.alpha = 1f;
-        handAnimator.SetBool("Sprint-to-Run", false);
+        //handAnimator.SetBool("Sprint-to-Run", false);
     }
     IEnumerator StopSprinting()
     {   
         stopSprintAnim = true;
-        //handAnimator.Play("Sprint-to-Run");
+        handAnimator.Play("Sprint-to-Run");
 
-        handAnimator.SetBool("Sprint-to-Run", true);
-        yield return new WaitForSeconds(0.18f);
+        //handAnimator.SetBool("Sprint-to-Run", true);
+        yield return new WaitForSeconds(0.19f);
         CancelSprint();
     } 
     IEnumerator StartSprinting()
@@ -273,11 +276,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         startSprintAnim = true;
         handAnimator.Play("Run-to-Sprint");
-        yield return new WaitForSeconds(0.18f);
+        yield return new WaitForSeconds(0.19f);
         aimPoint.alpha = 0f;
         startSprintAnim = false;
         sprintingAnim = true;
         this.speed = 6.5f;
+        handAnimator.Play("Sprint");
     } 
 
     void checkHands()
@@ -291,9 +295,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(Input.GetKeyDown(KeyCode.F)){
             if(noGuns)
                 return;
+                /*
             if(sprintingAnim || stopSprintAnim){
                 CancelSprint();
-            }
+            } */
             MeleeAttack();
             StartCoroutine(Melee());
         }
@@ -302,9 +307,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 return;
             if(totalAmmo > 0){
                 if(clipSize != currentAmmo){
+                    /*
                     if(sprintingAnim || stopSprintAnim){
                         CancelSprint();
                     }
+                    */
                     StartCoroutine(Reload());
                 }
             }
@@ -314,31 +321,37 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(noGuns)
                 return;
             if(currentAmmo > 0){
+                /*
                 if(sprintingAnim || stopSprintAnim){
                     StartCoroutine(StopSprinting());
-                }
-                if(!stopSprintAnim){
+                } */
+                //if(!stopSprintAnim){
                     nextTimeToFire = Time.time + 1f/fireRate;
                     Shoot();
-                }
+                //}
             } else if(totalAmmo > 0){
                 if(clipSize != currentAmmo){
+                    /*
                     if(sprintingAnim || stopSprintAnim){
                         CancelSprint();
-                    }
+                    }*/
                     StartCoroutine(Reload());
                 }
             } else{
                 CheckAnimation();
             }
 
-        } else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == false && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded){
-            //Debug.Log("1");
-            //return;
-            StartCoroutine(StopSprinting());
-
-            
-        } else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == true && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded) 
+        }else{
+            CheckAnimation();
+        }
+        /* else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == false && Time.time >= nextTimeToRun && !startSprintAnim && sprintingAnim){
+            nextTimeToRun= Time.time + 0.25f;
+            if(stopSprintAnim){
+                StartCoroutine(StopSprinting());
+                return;
+            } 
+        }
+        if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == true && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded) 
         {   
             Debug.Log("2");
             if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
@@ -356,9 +369,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 StartCoroutine(StopSprinting());
                 CheckAnimation();
             }
-        }else{
-            CheckAnimation();
-        }
+        }*/
 
     }
 
@@ -399,6 +410,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Reload()
     {   
         reloadingMeleeAnim = true;
+
         handAnimator.SetBool("Reloading", true);
 
         object[] instanceData = new object[3];
@@ -512,16 +524,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         if(reloadingMeleeAnim)
             return;
-        if(startSprintAnim){
+        /*if(startSprintAnim){
             return;
         } else if(stopSprintAnim){
             return;
-        }
+        }*/
         
         if(jumpingAnim){
-            if(sprintingAnim || stopSprintAnim)
-                return;
-            else
+            //if(sprintingAnim || stopSprintAnim)
+            //    return;
+            //else
                 handAnimator.Play("Idle");
         } else if(sprintingAnim){
             handAnimator.Play("Sprint");
