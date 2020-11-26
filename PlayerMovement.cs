@@ -181,8 +181,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
-            //if(startSprintAnim)
-            //    return;
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpingAnim = true;
         }
@@ -192,9 +190,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
             
         if(jumpingAnim){
-            /*
-            if(sprintingAnim || stopSprintAnim)
-                return;//CancelSprint(); */
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Jump");
             bodyAnimator.Play("Jump");
         }else if(move.magnitude != 0f){  
@@ -208,16 +203,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bodyAnimator.Play("Run");
             }
         } else {
-            /*if(stopSprintAnim)
-                return;
-            if(sprintingAnim || stopSprintAnim)
-                StartCoroutine(StopSprinting());*/
-            
-                idleAnim = true;
-                runningAnim = false;
-                PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
-                bodyAnimator.Play("Idle");
-            
+            idleAnim = true;
+            runningAnim = false;
+            PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
+            bodyAnimator.Play("Idle");
         }
         
     }
@@ -260,14 +249,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sprintingAnim = false;
         this.speed = 5.0f;
         aimPoint.alpha = 1f;
-        //handAnimator.SetBool("Sprint-to-Run", false);
     }
     IEnumerator StopSprinting()
     {   
         stopSprintAnim = true;
         handAnimator.Play("Sprint-to-Run");
-
-        //handAnimator.SetBool("Sprint-to-Run", true);
         yield return new WaitForSeconds(0.19f);
         CancelSprint();
     } 
@@ -295,10 +281,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(Input.GetKeyDown(KeyCode.F)){
             if(noGuns)
                 return;
-                /*
-            if(sprintingAnim || stopSprintAnim){
-                CancelSprint();
-            } */
+
             MeleeAttack();
             StartCoroutine(Melee());
         }
@@ -307,11 +290,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 return;
             if(totalAmmo > 0){
                 if(clipSize != currentAmmo){
-                    /*
-                    if(sprintingAnim || stopSprintAnim){
-                        CancelSprint();
-                    }
-                    */
                     StartCoroutine(Reload());
                 }
             }
@@ -321,20 +299,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(noGuns)
                 return;
             if(currentAmmo > 0){
-                /*
-                if(sprintingAnim || stopSprintAnim){
-                    StartCoroutine(StopSprinting());
-                } */
-                //if(!stopSprintAnim){
                     nextTimeToFire = Time.time + 1f/fireRate;
                     Shoot();
-                //}
             } else if(totalAmmo > 0){
                 if(clipSize != currentAmmo){
-                    /*
-                    if(sprintingAnim || stopSprintAnim){
-                        CancelSprint();
-                    }*/
                     StartCoroutine(Reload());
                 }
             } else{
@@ -344,33 +312,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }else{
             CheckAnimation();
         }
-        /* else if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == false && Time.time >= nextTimeToRun && !startSprintAnim && sprintingAnim){
-            nextTimeToRun= Time.time + 0.25f;
-            if(stopSprintAnim){
-                StartCoroutine(StopSprinting());
-                return;
-            } 
-        }
-        if(Input.GetKey(KeyCode.LeftShift) && Input.GetKey(KeyCode.W) == true && Time.time >= nextTimeToRun && (move.magnitude != 0f) && isGrounded) 
-        {   
-            Debug.Log("2");
-            if(!startSprintAnim && !stopSprintAnim && !sprintingAnim){
-                //if(!jumpingAnim){
-                    nextTimeToRun= Time.time + 0.25f;
-                    StartCoroutine(StartSprinting());
-                    CheckAnimation();
-                //}
-            }
-        }else if(Input.GetKeyUp(KeyCode.LeftShift) && Time.time >= nextTimeToRun)
-        {   
-            Debug.Log("3");
-            if(sprintingAnim || startSprintAnim){
-                nextTimeToRun= Time.time + 0.25f;
-                StartCoroutine(StopSprinting());
-                CheckAnimation();
-            }
-        }*/
-
     }
 
     void MeleeAttack()
@@ -524,17 +465,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         if(reloadingMeleeAnim)
             return;
-        /*if(startSprintAnim){
-            return;
-        } else if(stopSprintAnim){
-            return;
-        }*/
         
         if(jumpingAnim){
-            //if(sprintingAnim || stopSprintAnim)
-            //    return;
-            //else
-                handAnimator.Play("Idle");
+            handAnimator.Play("Idle");
         } else if(sprintingAnim){
             handAnimator.Play("Sprint");
         }else if(runningAnim){
