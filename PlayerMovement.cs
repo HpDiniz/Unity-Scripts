@@ -154,7 +154,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     // Update is called once per frame
     void Update()
     {   
-        //Debug.Log(CurrentAnimation());
+        Debug.Log(jumpingAnim.ToString());
         if(!PV.IsMine)
 			return;
 
@@ -170,12 +170,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        //float mag = Mathf.Clamp01(new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude);
+        float magnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
 
-        handAnimator.SetFloat("Walk_magnitude", new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f));
+        handAnimator.SetFloat("Walk_magnitude", magnitude);
+        bodyAnimator.SetFloat("Walk_magnitude", magnitude);
 
         if(isGrounded && velocity.y <0)
         {   
+            bodyAnimator.SetBool("Jump", false);
             jumpingAnim = false;
             velocity.y = -2f;
         }
@@ -189,12 +191,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             jumpingAnim = true;
+            bodyAnimator.SetBool("Jump", true);
         }
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
         
-            
+        /*
         if(jumpingAnim){
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Jump");
             bodyAnimator.Play("Jump");
@@ -214,6 +217,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             PV.RPC("OnAnimationChange",RpcTarget.Others,"Idle");
             bodyAnimator.Play("Idle");
         }
+        */
         
     }
 
@@ -251,7 +255,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void checkHands()
     {   
-        if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle")
+        if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
             aimPoint.alpha = 0f;
         else
             aimPoint.alpha = 1f;
@@ -266,63 +270,68 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }
             }
         } 
-        else if(Input.GetButton("Fire1"))
-        {   
-            if(noGuns || CurrentAnimation() == "Reload")
+        else {
+
+            if(isReloading || CurrentAnimation() == "Reload")
                 return;
-            if(currentAmmo > 0){
-                handAnimator.SetInteger("Fire", 1);
-                if(CurrentAnimation() == "Run")
+
+            if(Input.GetButtonDown("Fire2")){
+          
+                if(noGuns)
                     return;
-                if(Time.time >= nextTimeToFire){
-                    nextTimeToFire = Time.time + 1f/fireRate;
-                    if(isReloading || CurrentAnimation() == "Reload")
-                        return;
-                    Shoot();
+                if(isAiming == false){
+                    isAiming = true;
+                }else{
+                    isAiming = false;
                 }
+                handAnimator.SetBool("Sight", isAiming);
+            }
+            
+        
+            if(Input.GetButton("Fire1"))
+            {   
+                if(noGuns)
+                    return;
+                if(currentAmmo > 0){
+                    handAnimator.SetInteger("Fire", 1);
+                    if(CurrentAnimation() == "Run")
+                        return;
+                    if(Time.time >= nextTimeToFire){
+                        nextTimeToFire = Time.time + 1f/fireRate;
+                        Shoot();
+                    }
+                }else{
+                    handAnimator.SetInteger("Fire", 0);
+                    if(totalAmmo > 0){
+                        if(clipSize != currentAmmo){
+                            isReloading = true;
+                            StartCoroutine(Reload());
+                        }
+                    }
+                }  
+
             }else{
                 handAnimator.SetInteger("Fire", 0);
-                if(totalAmmo > 0){
-                    if(clipSize != currentAmmo && isReloading == false){
-                        isReloading = true;
-                        StartCoroutine(Reload());
-                    }
-                } else{
-                    CheckAnimation();
+                
+                if(isAiming)
+                    return;
+                if(Input.GetButton("Fire3")){
+                    handAnimator.SetBool("Run", true);
+                    bodyAnimator.SetBool("Run", true);
+                } else {
+                    handAnimator.SetBool("Run", false);
+                    bodyAnimator.SetBool("Run", false);
                 }
-            }  
-
-        }else if(Input.GetButtonDown("Fire2"))
-        {   
-            if(noGuns || CurrentAnimation() == "Reload")
-                return;
-            if(isAiming == false){
-                isAiming = true;
-            }else{
-                isAiming = false;
             }
-            handAnimator.SetBool("Sight", isAiming);
-            
-        }else{
-            handAnimator.SetInteger("Fire", 0);
-            
-            if(isAiming || CurrentAnimation() == "Reload")
-                return;
-            if(Input.GetButton("Fire3")){
-                handAnimator.SetBool("Run", true);
-            } else {
-                handAnimator.SetBool("Run", false);
-            }
-            CheckAnimation();
         }
-        /*
-        else if(Input.GetKeyDown(KeyCode.F)){
+        
+        /*if(Input.GetKeyDown(KeyCode.F)){
             if(noGuns || isAiming)
                 return;
 
             MeleeAttack();
             StartCoroutine(Melee());
-        }*/
+        }else */
 
     }
 
@@ -332,7 +341,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         return m_CurrentClipInfo[0].clip.name;
         
     }
-
+    /*
     void MeleeAttack()
     {
         RaycastHit hit;
@@ -366,6 +375,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }
         }
     }
+    */
 
     IEnumerator Reload()
     {   
@@ -395,7 +405,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Melee()
     {   
         
-        //handAnimator.SetBool("Meleeing", true);
+        handAnimator.SetBool("Melee", true);
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -403,7 +413,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         yield return new WaitForSeconds(meleeTime);
 
-        //handAnimator.SetBool("Meleeing", false);
+        handAnimator.SetBool("Melee", false);
 
         yield return new WaitForSeconds(0.25f);
 
@@ -475,20 +485,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
-    void CheckAnimation()
-    {   
-
-        if(jumpingAnim){
-            //handAnimator.Play("Idle");
-        } else if(sprintingAnim){
-            //handAnimator.Play("Sprint");
-        }else if(runningAnim){
-            //handAnimator.Play("Run");
-        } else if(idleAnim){
-            //StartCoroutine(RestoreLife());
-            //handAnimator.Play("Idle");
-        }
-    }
     /*
     public IEnumerator RestoreLife()
     {
