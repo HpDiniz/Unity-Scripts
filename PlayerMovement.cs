@@ -11,6 +11,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
 
+    float walkMagnitude;
     public float range = 100f;
     public float fireRate = 8f;
     public float impactForce = 20f;
@@ -188,10 +189,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        float magnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
+        float walkMagnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
 
-        handAnimator.SetFloat("Walk_magnitude", magnitude);
-        bodyAnimator.SetFloat("Walk_magnitude", magnitude);
+        handAnimator.SetFloat("Walk_magnitude", walkMagnitude);
+        bodyAnimator.SetFloat("Walk_magnitude", walkMagnitude);
 
         if(isGrounded && velocity.y <0)
         {   
@@ -306,12 +307,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 return;
 
             if(Input.GetButtonDown("Fire2")){
-          
-                if(isAiming == false){
-                    isAiming = true;
-                }else{
-                    isAiming = false;
-                }
+
+                isAiming = !isAiming;
+                isRunning = false;
                 handAnimator.SetBool("Sight", isAiming);
             }
             
@@ -341,7 +339,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else{
                 handAnimator.SetInteger("Fire", 0);
                 
-                if(isAiming || isCrounching)
+                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFireLoop" || CurrentAnimation() == "AutomaticFireLoop")
                     return;
                 if(Input.GetButton("Fire3")){
                     isRunning = true;
@@ -477,10 +475,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         instanceData[1] = 0;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
-
         RaycastHit hit;
 
-        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, range))
+
+        Vector3 targetPosition;
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
+            targetPosition = fpsCam.transform.forward;
+        else{
+            float magnitude;
+            magnitude = walkMagnitude > 0.1 ? 0.1f : 0.05f;
+            targetPosition = new Vector3(fpsCam.transform.forward.x + Random.Range(-magnitude, magnitude),fpsCam.transform.forward.y + Random.Range(-magnitude, magnitude), fpsCam.transform.forward.z + Random.Range(-magnitude, magnitude));
+        }
+        if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, range))
         {   
             int amount = 0;
             

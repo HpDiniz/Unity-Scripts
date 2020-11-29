@@ -85,8 +85,8 @@ public class DamageIndicator : MonoBehaviour
 
     IEnumerator RotateToTheTarget()
     {
-        //while(enabled)
-        //{
+        if(enabled)
+        {
             if(Target)
             {
                 tPos = Target.position;
@@ -103,7 +103,7 @@ public class DamageIndicator : MonoBehaviour
             Rect.localRotation = tRot * Quaternion.Euler(northDirection);
 
             yield return null;
-        //}
+        }
     }
 
     private IEnumerator Countdown()
