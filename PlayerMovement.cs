@@ -48,10 +48,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     Vector3 velocity;
 
     bool isGrounded;
+    bool isRunning = false;
     bool isAiming = false;
     bool isReloading = false;
     bool waitingForSpawn;
 
+    public bool isCrounching = false;
     public bool jumpingAnim = false;
     public bool runningAnim = false;
     public bool sprintingAnim = false;
@@ -129,7 +131,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
                 damageIndicator = canvas.GetComponent<DI_System>();
                 aimPoint.alpha = 1f;
-                
             }
 
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
@@ -154,16 +155,31 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     // Update is called once per frame
     void Update()
     {   
-        Debug.Log(jumpingAnim.ToString());
+        
         if(!PV.IsMine)
 			return;
 
         if(waitingForSpawn)
             return;
 
+        
+
         this.lifeText.text = health.ToString();
 
-        checkHands();
+        CheckHands();
+        CheckSpeed();
+
+        if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
+        {
+            isCrounching = true;
+            this.speed = 3f;
+            bodyAnimator.SetBool("Crouch", true);
+            //fpsCam.transform.position = new Vector3(fpsCam.transform.position.x,1.25f,fpsCam.transform.position.z);
+        } else {
+            isCrounching = false;
+            bodyAnimator.SetBool("Crouch", false);
+            //fpsCam.transform.position = new Vector3(fpsCam.transform.position.x,1.69f,fpsCam.transform.position.z);
+        }
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
@@ -185,7 +201,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         move = transform.right * x + transform.forward * z;
         controller.Move(move * speed * Time.deltaTime);
 
-        checkSensitivy();
+        CheckSensitivy();
 
         if(Input.GetButtonDown("Jump") && isGrounded)
         {
@@ -227,7 +243,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bodyAnimator.Play(anim);
     }
 
-    void checkSensitivy()
+    void CheckSensitivy()
     {
         if(Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.Plus))
         {   
@@ -253,7 +269,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
 
-    void checkHands()
+    void CheckSpeed()
+    {   
+        if(isCrounching)
+            this.speed = 3.5f;
+        else if(isAiming)
+            this.speed = 4f;
+        else if(isRunning)
+            this.speed = 6.5f;
+        else
+            this.speed = 5f;
+    }
+
+    void CheckHands()
     {   
         if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
             aimPoint.alpha = 0f;
@@ -277,8 +305,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             if(Input.GetButtonDown("Fire2")){
           
-                if(noGuns)
-                    return;
                 if(isAiming == false){
                     isAiming = true;
                 }else{
@@ -313,12 +339,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else{
                 handAnimator.SetInteger("Fire", 0);
                 
-                if(isAiming)
+                if(isAiming || isCrounching)
                     return;
                 if(Input.GetButton("Fire3")){
+                    isRunning = true;
                     handAnimator.SetBool("Run", true);
                     bodyAnimator.SetBool("Run", true);
                 } else {
+                    isRunning = false;
                     handAnimator.SetBool("Run", false);
                     bodyAnimator.SetBool("Run", false);
                 }
@@ -338,8 +366,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     string CurrentAnimation()
     {   
         AnimatorClipInfo[] m_CurrentClipInfo = handAnimator.GetCurrentAnimatorClipInfo(0);
-        return m_CurrentClipInfo[0].clip.name;
-        
+        if(m_CurrentClipInfo.Length >0)
+            return m_CurrentClipInfo[0].clip.name;
+        else
+            return "";
     }
     /*
     void MeleeAttack()
