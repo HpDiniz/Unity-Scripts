@@ -62,7 +62,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     bool startSprintAnim = false;
     bool stopSprintAnim = false;
-
+    
     UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
     AudioSource gireiSound;
@@ -132,7 +132,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 damageIndicator = canvas.GetComponent<DI_System>();
                 aimPoint.alpha = 1f;
             }
-
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
             streakText.text =  "0 Kill Streak";
@@ -169,17 +168,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         CheckHands();
         CheckSpeed();
 
+        float targetHeight;
         if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
         {
             isCrounching = true;
-            this.speed = 3f;
             bodyAnimator.SetBool("Crouch", true);
-            //fpsCam.transform.position = new Vector3(fpsCam.transform.position.x,1.25f,fpsCam.transform.position.z);
+            targetHeight = 1.0f;
         } else {
             isCrounching = false;
             bodyAnimator.SetBool("Crouch", false);
-            //fpsCam.transform.position = new Vector3(fpsCam.transform.position.x,1.69f,fpsCam.transform.position.z);
+            targetHeight = 1.9f;
         }
+
+        //controller.height = Mathf.Lerp(controller.height, targetHeight, 10f * Time.deltaTime);
+        fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
 
