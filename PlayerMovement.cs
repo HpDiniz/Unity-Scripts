@@ -29,8 +29,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float nextTimeToRun = 0f;
 
     public bool noGuns = false;
-
-    public CharacterController controller;
     
     public Animator bodyAnimator;
     public Animator handAnimator;
@@ -64,11 +62,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     bool startSprintAnim = false;
     bool stopSprintAnim = false;
     
+    GhostPosition ghostPosition;
     UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
     AudioSource gireiSound;
     AudioSource ameacaSound;
-	CharacterController rb;
+	public CharacterController controller;
     CanvasGroup aimPoint;
     Transform heaven;
     Vector3 move;
@@ -96,16 +95,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 	void Awake()
 	{   
+        ghostPosition = GetComponentInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
         fpsCam = GetComponentInChildren<Camera>();
-		rb = GetComponent<CharacterController>();
+		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
         canvas = GetComponentInChildren<Canvas>();
 	}
 
 
     void Start()
-    {  
+    {   
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
@@ -142,13 +142,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             currentAmmo = clipSize;
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             lifeText.text = health.ToString();
+            Debug.Log("Desabilitando");
+            ghostPosition.Disable();
         }
         else
 		{
 			Destroy(GetComponentInChildren<Camera>().gameObject);
             Destroy(GetComponentInChildren<Canvas>().gameObject);
+            Destroy(mouseLook);
             Destroy(fpsCam);
-			Destroy(rb);
+			Destroy(controller);
+            Destroy(canvas);
 		}
     }
 
@@ -181,7 +185,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             targetHeight = 1.9f;
         }
 
-        //controller.height = Mathf.Lerp(controller.height, targetHeight, 10f * Time.deltaTime);
         fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
 
         isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
@@ -278,15 +281,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             this.speed = 3.5f;
         else if(isAiming)
             this.speed = 4f;
-        else if(isRunning)
-            this.speed = 6.5f;
+        else if(CurrentAnimation() == "Run")
+            this.speed = 7f;
         else
             this.speed = 5f;
     }
 
     void CheckHands()
     {   
-        if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
+        if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFire")
             aimPoint.alpha = 0f;
         else
             aimPoint.alpha = 1f;
@@ -339,9 +342,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else{
                 handAnimator.SetInteger("Fire", 0);
                 
-                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFireLoop" || CurrentAnimation() == "AutomaticFireLoop")
+                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFire" || CurrentAnimation() == "AutomaticFireLoop"){
+                    isRunning = false;
                     return;
-                if(Input.GetButton("Fire3")){
+                }
+                if(Input.GetButton("Fire3") && isGrounded){
                     isRunning = true;
                     handAnimator.SetBool("Run", true);
                     bodyAnimator.SetBool("Run", true);
@@ -479,7 +484,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 
         Vector3 targetPosition;
-        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFire")
             targetPosition = fpsCam.transform.forward;
         else{
             float magnitude;
