@@ -1,12 +1,14 @@
 ﻿using Photon.Pun;
 using Photon.Realtime;
+using Photon.Pun.UtilityScripts;
+using ExitGames.Client.Photon;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCallback
+public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCallback, IOnEventCallback
 {   
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
@@ -50,7 +52,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     bool isRunning = false;
     bool isAiming = false;
     bool isReloading = false;
-    bool waitingForSpawn;
+    public bool waitingForSpawn;
 
     public bool isCrounching = false;
     public bool jumpingAnim = false;
@@ -63,16 +65,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     bool stopSprintAnim = false;
     
     GhostPosition ghostPosition;
-    UpdateRanking updateRanking;
+    //UpdateRanking updateRanking;
     AudioSource aHeroHasFallen;
     AudioSource gireiSound;
     AudioSource ameacaSound;
 	public CharacterController controller;
-    CanvasGroup aimPoint;
+    public CanvasGroup aimPoint;
     Transform heaven;
     Vector3 move;
     public Camera fpsCam;
-    Canvas canvas;
+    public Canvas canvas;
     HitMarker hitMarker;
     public MouseLook mouseLook;
     DI_System damageIndicator;
@@ -95,6 +97,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 	void Awake()
 	{   
+
+        RoomManager.players.Add(this);
         ghostPosition = GetComponentInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
         fpsCam = GetComponentInChildren<Camera>();
@@ -110,8 +114,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
-        updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
-        updateRanking.UpdatePlayers(); 
+        RoomManager.updateRequest.Add(true);
+        //updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
+        //updateRanking.UpdatePlayers(); 
         
         if(PV.IsMine)
 		{   
@@ -142,7 +147,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             currentAmmo = clipSize;
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             lifeText.text = health.ToString();
-            Debug.Log("Desabilitando");
+            //Debug.Log("Desabilitando");
             ghostPosition.Disable();
         }
         else
@@ -528,54 +533,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
-    /*
-    public IEnumerator RestoreLife()
-    {
-        yield return new WaitForSeconds(5f);
-        if(this.health + 10 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 10;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 10 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 10;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 10 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 15;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 15 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 15;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 15 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 15;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 15 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 15;
-        yield return new WaitForSeconds(0.5f);
-        if(this.health + 20 > 100){
-            this.health = 100;
-            StopCoroutine(RestoreLife());
-        }else
-            this.health = this.health + 20;
-    } */
-
-    IEnumerator ResetVariabels(PlayerMovement target) 
+    IEnumerator Respawn(PlayerMovement target) 
     {   
         target.killStreak = 0;
         target.jumpingAnim = false;
@@ -658,6 +616,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
                 whoReceivedDamage.health = 0;
 
+                RoomManager.updateRequest.Add(true);
+
                 //PhotonNetwork.Instantiate("AkDroped",whoReceivedDamage.transform.position, Quaternion.identity);
 
                 Kill(whoReceivedDamage,whoCausedDamage);
@@ -691,9 +651,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 PV.RPC("playDeathSound",RpcTarget.AllBuffered);
             }
             target.waitingForSpawn = true;
-            updateRanking.UpdatePlayers();
-            StartCoroutine(ResetVariabels(target));
-            updateRanking.UpdatePlayers();
+            //updateRanking.UpdatePlayers();
+            StartCoroutine(Respawn(target));
+            //updateRanking.UpdatePlayers();
         }
     }
 
@@ -711,13 +671,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(player.killStreak == 10){
             if(this.PV.InstantiationId == player.PV.InstantiationId)
                 StartCoroutine(exibeKillStreak(player,"10"));
-            PV.RPC("playGireiSound",RpcTarget.AllBuffered);
+            PV.RPC("playGireiSound",RpcTarget.All);
         } else if(player.killStreak == 5){
             if(this.PV.InstantiationId == player.PV.InstantiationId)
                 StartCoroutine(exibeKillStreak(player,"5"));
-            PV.RPC("playAmeacaSound",RpcTarget.AllBuffered);
+            PV.RPC("playAmeacaSound",RpcTarget.All);
         }else
-            PV.RPC("playDeathSound",RpcTarget.AllBuffered);
+            PV.RPC("playDeathSound",RpcTarget.All);
         /*
         else if(player.killStreak == 5){
             StartCoroutine(exibeKillStreak(player,"5"));
@@ -746,4 +706,49 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             gireiSound.Play(0);
     }
 
+    public void Reset()
+    {   
+        waitingForSpawn = true;
+        totalAmmo = 280;
+        clipSize = 30;
+        currentAmmo = clipSize;
+        health = 100;
+        speed = 5.5f;
+        killStreak = 0;
+        killCounter = 0;
+        deathCounter = 0;
+        isRunning = false;
+        isAiming = false;
+        isReloading = false;
+        isCrounching = false;
+        jumpingAnim = false;
+        runningAnim = false;
+        sprintingAnim = false;
+        idleAnim = true;
+        shootingAnim = false;
+        startSprintAnim = false;
+        stopSprintAnim = false;
+        aimPoint.alpha = 1f;
+        canvas.gameObject.SetActive(true);
+        StartCoroutine(Respawn(this));
+    }
+
+    public void OnEvent(EventData photonEvent)
+    {
+        if(photonEvent.Code == RoomManager.restartGameEventCode)
+        {
+            this.Reset();
+            RoomManager.updateRequest.Add(true); 
+        }
+    }
+
+    private void OnEnable() 
+    {
+        PhotonNetwork.AddCallbackTarget(this);
+    }
+
+    private void OnDisable() 
+    {
+        PhotonNetwork.RemoveCallbackTarget(this);
+    }
 }
