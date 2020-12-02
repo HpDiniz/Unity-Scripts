@@ -40,15 +40,28 @@ public class RoomManager : MonoBehaviourPunCallbacks
 	}
 
 	void Update()
-	{
+	{	
+		
 		if(updateRequest.Count > 0){
 			SetScoreText();
 			updateRequest.RemoveAt(0);
+			/*
 			if(players[0].deathCounter >= 1){
 				StartCoroutine(DisplayMessage(players[0].Nickname + " é o vencedor!"));
-				if(PhotonNetwork.IsMasterClient)
-					StartCoroutine(RestartGame());
-			}
+
+				for(int i=0; i< playerRanking.Length; i++){
+					playerRanking[i].text = "";
+				}
+				
+				foreach (PlayerMovement player in players)
+				{
+					player.waitingForSpawn = true;
+					player.Reset();
+				}
+
+				//if(PhotonNetwork.IsMasterClient)
+				//	StartCoroutine(RestartGame());
+			} */	
 		}
 	}
 
@@ -85,20 +98,12 @@ public class RoomManager : MonoBehaviourPunCallbacks
 
 	IEnumerator RestartGame() 
 	{	
-		for(int i=0; i< playerRanking.Length; i++){
-			playerRanking[i].text = "";
-		}
-		foreach (PlayerMovement player in players)
-		{
-			player.waitingForSpawn = true;
-			player.canvas.gameObject.SetActive(false);
-		}
-		gamePanel.color = new Color(gamePanel.color.r,gamePanel.color.g,gamePanel.color.b,50f);
-		yield return new WaitForSeconds(5);
-		gamePanel.color = new Color(gamePanel.color.r,gamePanel.color.g,gamePanel.color.b,0f);
+
+		yield return new WaitForSeconds(3);
 		RaiseEventOptions raiseEventOptions = new RaiseEventOptions { Receivers = ReceiverGroup.All }; // You would have to set the Receivers to All in order to receive this event on the local client as well
 		SendOptions sendOptions = new SendOptions {Reliability = true};
 		PhotonNetwork.RaiseEvent(restartGameEventCode, null , raiseEventOptions, sendOptions);
+		//gamePanel.color = new Color(gamePanel.color.r,gamePanel.color.g,gamePanel.color.b,0f);
 	}
 
 	public override void OnEnable()

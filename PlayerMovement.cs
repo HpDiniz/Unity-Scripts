@@ -159,6 +159,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(controller);
             Destroy(canvas);
 		}
+        RoomManager.updateRequest.Add(true);
     }
 
     // Update is called once per frame
@@ -410,7 +411,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = amount;
                     
-                    PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
+                    PV.RPC("TakeDamage",RpcTarget.All,instanceData);
                 }
             }
         }
@@ -521,7 +522,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = amount;
-                    PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
+                    PV.RPC("TakeDamage",RpcTarget.All,instanceData);
                 }
             } else {
                 PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
@@ -581,7 +582,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
             instanceData[2] = 100;
-            PV.RPC("TakeDamage",RpcTarget.AllBuffered,instanceData);
+            PV.RPC("TakeDamage",RpcTarget.All,instanceData);
         } else if(other.tag == "NoGuns")
         {
             noGuns = true;
@@ -648,7 +649,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 enemy.killStreak ++;
                 CheckKillStreak(enemy);
             } else {
-                PV.RPC("playDeathSound",RpcTarget.AllBuffered);
+                PV.RPC("playDeathSound",RpcTarget.All);
             }
             target.waitingForSpawn = true;
             //updateRanking.UpdatePlayers();
@@ -681,7 +682,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         /*
         else if(player.killStreak == 5){
             StartCoroutine(exibeKillStreak(player,"5"));
-        PV.RPC("playGireiSound",RpcTarget.AllBuffered);
+        PV.RPC("playGireiSound",RpcTarget.All);
         }*/
         
     }
@@ -728,8 +729,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         shootingAnim = false;
         startSprintAnim = false;
         stopSprintAnim = false;
-        aimPoint.alpha = 1f;
-        canvas.gameObject.SetActive(true);
+        if(PV.IsMine){
+            aimPoint.alpha = 1f;
+            canvas.gameObject.SetActive(true);
+        }
+        
         StartCoroutine(Respawn(this));
     }
 
