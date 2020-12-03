@@ -65,7 +65,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     bool stopSprintAnim = false;
     
     GhostPosition ghostPosition;
-    //UpdateRanking updateRanking;
+    HeadPosition headPosition;
     AudioSource aHeroHasFallen;
     AudioSource gireiSound;
     AudioSource ameacaSound;
@@ -97,7 +97,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 	void Awake()
 	{   
-
+        headPosition = GetComponentInChildren<HeadPosition>();
         RoomManager.players.Add(this);
         ghostPosition = GetComponentInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
@@ -147,8 +147,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             currentAmmo = clipSize;
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             lifeText.text = health.ToString();
-            //Debug.Log("Desabilitando");
-            ghostPosition.Disable();
+            headPosition.Invisible();
+            ghostPosition.Invisible();
         }
         else
 		{
@@ -171,7 +171,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(waitingForSpawn)
             return;
-
         
 
         this.lifeText.text = health.ToString();
@@ -189,6 +188,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             isCrounching = false;
             bodyAnimator.SetBool("Crouch", false);
             targetHeight = 1.9f;
+        }
+
+        if(Input.GetKey(KeyCode.W) && isGrounded)
+        {
+            handAnimator.SetBool("W_pressed", true);
+        } else {
+            handAnimator.SetBool("W_pressed", false);
         }
 
         fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
@@ -295,10 +301,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CheckHands()
     {   
-        if(isAiming || isReloading || CurrentAnimation() == "Reload" || CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFire")
-            aimPoint.alpha = 0f;
-        else
+        if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "AutomaticFireLoop" || CurrentAnimation() == "Run")
             aimPoint.alpha = 1f;
+        else
+            aimPoint.alpha = 0f;
 
         if(Input.GetKeyDown(KeyCode.R)){
             if(noGuns || CurrentAnimation() == "Reload")
@@ -463,6 +469,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CreateDamageIndicator(int id, Transform position)
     {      
+        return;
 
         if(this.PV.InstantiationId != id)
             return;
