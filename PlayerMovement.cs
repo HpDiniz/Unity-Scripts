@@ -13,7 +13,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
 
-    float walkMagnitude;
+    private PlayerFootsteps playerFootsteps;
+
+    private float sprint_Volume = 0.6f;
+    private float crouch_Volume = 0.1f;
+    private float walk_Volume_Min = 0.2f, walk_Volume_Max = 0.4f;
+
+    private float walk_Step_Distance = 0.42f;
+    private float sprint_Step_Distance = 0.38f;
+    private float crouch_Step_Distance = 0.54f;
+
+    public float walkMagnitude;
     public float range = 100f;
     public float fireRate = 8f;
     public float impactForce = 20f;
@@ -31,9 +41,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float nextTimeToRun = 0f;
 
     public bool noGuns = false;
+    public int gunIndex = 1;
     
     public Animator bodyAnimator;
-    public Animator handAnimator;
+    public List<Animator> handAnimator = new List<Animator>();
+    public List<GameObject> handWeapons = new List<GameObject>();
     public Transform groundCheck;
     public LayerMask groundMask;
     
@@ -48,7 +60,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     Vector3 velocity;
 
-    bool isGrounded;
+    public bool isGrounded;
     bool isRunning = false;
     bool isAiming = false;
     bool isReloading = false;
@@ -98,29 +110,47 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 	void Awake()
 	{   
         headPosition = GetComponentInChildren<HeadPosition>();
-        RoomManager.players.Add(this);
+        GameManager.players.Add(this);
         ghostPosition = GetComponentInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
         fpsCam = GetComponentInChildren<Camera>();
 		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
         canvas = GetComponentInChildren<Canvas>();
+        playerFootsteps = GetComponent<PlayerFootsteps>();
 	}
 
 
     void Start()
     {   
+        walkMagnitude = 0f;
+        playerFootsteps.volume_Min = walk_Volume_Min;
+        playerFootsteps.volume_Max = walk_Volume_Max;
+        playerFootsteps.step_Distance = walk_Step_Distance;
+
         aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
-        RoomManager.updateRequest.Add(true);
+        GameManager.updateRequest.Add(true);
+        PV.RPC("updatePlayer",RpcTarget.AllBuffered);
         //updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
         //updateRanking.UpdatePlayers(); 
         
         if(PV.IsMine)
 		{   
-            //GameObject.Find("AkGhost").SetActive(false);
+            Animator [] Animators = GetComponentsInChildren<Animator>();
+
+            foreach (Animator item in Animators)
+            {
+                if(item.tag == "Weapon"){
+                    handAnimator.Add(item);
+                    handWeapons.Add(item.gameObject);
+                }
+            }
+
+            ChangeGuns();
+
             if(canvas){
                 Text [] canvasItem = canvas.GetComponentsInChildren<Text>();
 
@@ -132,11 +162,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     else if(canvasItem[i].name == "Sensibilidade")
                         sensibilidadeText = canvasItem[i];
                 }
-                aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
+                //aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
                 damageIndicator = canvas.GetComponent<DI_System>();
-                aimPoint.alpha = 1f;
+                //aimPoint.alpha = 1f;
             }
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
@@ -159,7 +189,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(controller);
             Destroy(canvas);
 		}
-        RoomManager.updateRequest.Add(true);
+        GameManager.updateRequest.Add(true);
     }
 
     // Update is called once per frame
@@ -171,7 +201,44 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(waitingForSpawn)
             return;
-        
+
+        if(Input.GetKeyDown(KeyCode.Alpha1)){
+            if(gunIndex == 0) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 0;
+            ChangeGuns();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha2)){
+            if(gunIndex == 1) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 1;
+            ChangeGuns();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha3)){
+            if(gunIndex == 2) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 2;
+            ChangeGuns();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha4)){
+            if(gunIndex == 3) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 3;
+            ChangeGuns();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha5)){
+            if(gunIndex == 4) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 4;
+            ChangeGuns();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha6)){
+            if(gunIndex == 5) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 5;
+            ChangeGuns();
+            return;
+        }
 
         this.lifeText.text = health.ToString();
 
@@ -189,13 +256,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             bodyAnimator.SetBool("Crouch", false);
             targetHeight = 1.9f;
         }
-
+        /*
         if(Input.GetKey(KeyCode.W) && isGrounded)
         {
-            handAnimator.SetBool("W_pressed", true);
+            handAnimator[gunIndex].SetBool("W_pressed", true);
         } else {
-            handAnimator.SetBool("W_pressed", false);
-        }
+            handAnimator[gunIndex].SetBool("W_pressed", false);
+        }*/
 
         fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
 
@@ -204,9 +271,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        float walkMagnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
+        walkMagnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
 
-        handAnimator.SetFloat("Walk_magnitude", walkMagnitude);
         bodyAnimator.SetFloat("Walk_magnitude", walkMagnitude);
 
         if(isGrounded && velocity.y <0)
@@ -287,24 +353,51 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
 
+    void ChangeGuns()
+    {   
+
+        for (int i = 0; i < handWeapons.Count; i++)
+        {   
+            if(i == gunIndex){
+                handWeapons[i].SetActive(true); 
+            }else
+                handWeapons[i].SetActive(false);
+        }
+
+        //handAnimator[gunIndex].SetInteger("Movement", 0);
+    }
+
     void CheckSpeed()
     {   
-        if(isCrounching)
+        if(isCrounching){
+            playerFootsteps.step_Distance = crouch_Step_Distance;
+            playerFootsteps.volume_Min = crouch_Volume;
+            playerFootsteps.volume_Max = crouch_Volume;
             this.speed = 3.5f;
-        else if(isAiming)
+        }else if(isAiming){
+            playerFootsteps.step_Distance = crouch_Step_Distance;
+            playerFootsteps.volume_Min = crouch_Volume;
+            playerFootsteps.volume_Max = crouch_Volume;
             this.speed = 4f;
-        else if(CurrentAnimation() == "Run")
-            this.speed = 7f;
-        else
+        }else if(CurrentAnimation() == "Run"){
+            playerFootsteps.step_Distance = sprint_Step_Distance;
+            playerFootsteps.volume_Min = sprint_Volume;
+            playerFootsteps.volume_Max = sprint_Volume;
+            this.speed = 8f;
+        }else{
+            playerFootsteps.step_Distance = walk_Step_Distance;
+            playerFootsteps.volume_Min = walk_Volume_Min;
+            playerFootsteps.volume_Max = walk_Volume_Max;
             this.speed = 5f;
+        }
     }
 
     void CheckHands()
     {   
-        if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "AutomaticFireLoop" || CurrentAnimation() == "Run")
-            aimPoint.alpha = 1f;
-        else
-            aimPoint.alpha = 0f;
+        //if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "AutomaticFireLoop" || CurrentAnimation() == "Run")
+            //aimPoint.alpha = 1f;
+        //else
+            //aimPoint.alpha = 0f;
 
         if(Input.GetKeyDown(KeyCode.R)){
             if(noGuns || CurrentAnimation() == "Reload")
@@ -325,7 +418,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
                 isAiming = !isAiming;
                 isRunning = false;
-                handAnimator.SetBool("Sight", isAiming);
+                handAnimator[gunIndex].SetBool("Sight", isAiming);
             }
             
         
@@ -334,7 +427,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(noGuns)
                     return;
                 if(currentAmmo > 0){
-                    handAnimator.SetInteger("Fire", 1);
+                    handAnimator[gunIndex].SetInteger("Fire", 2);
                     if(CurrentAnimation() == "Run")
                         return;
                     if(Time.time >= nextTimeToFire){
@@ -342,7 +435,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         Shoot();
                     }
                 }else{
-                    handAnimator.SetInteger("Fire", 0);
+                    handAnimator[gunIndex].SetInteger("Fire", 0);
                     if(totalAmmo > 0){
                         if(clipSize != currentAmmo){
                             isReloading = true;
@@ -352,19 +445,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }  
 
             }else{
-                handAnimator.SetInteger("Fire", 0);
+                handAnimator[gunIndex].SetInteger("Fire", -1);
                 
-                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFire" || CurrentAnimation() == "AutomaticFireLoop"){
+                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFireLoop" || CurrentAnimation() == "AutomaticFireLoop"){
                     isRunning = false;
                     return;
                 }
                 if(Input.GetButton("Fire3") && isGrounded){
                     isRunning = true;
-                    handAnimator.SetBool("Run", true);
+                    handAnimator[gunIndex].SetInteger("Movement", 2);
                     bodyAnimator.SetBool("Run", true);
                 } else {
                     isRunning = false;
-                    handAnimator.SetBool("Run", false);
+                    
+                    if(walkMagnitude > 0.1)
+                        handAnimator[gunIndex].SetInteger("Movement", 1);
+                    else
+                        handAnimator[gunIndex].SetInteger("Movement", 0);
+
                     bodyAnimator.SetBool("Run", false);
                 }
             }
@@ -382,11 +480,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     string CurrentAnimation()
     {   
-        AnimatorClipInfo[] m_CurrentClipInfo = handAnimator.GetCurrentAnimatorClipInfo(0);
+        AnimatorClipInfo[] m_CurrentClipInfo = handAnimator[gunIndex].GetCurrentAnimatorClipInfo(0);
         if(m_CurrentClipInfo.Length >0)
             return m_CurrentClipInfo[0].clip.name;
         else
-            return "";
+            return ""; 
     }
     /*
     void MeleeAttack()
@@ -427,8 +525,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Reload()
     {   
         isAiming = false;
-        handAnimator.SetBool("Sight", false);
-        handAnimator.SetInteger("Reload", 1);
+       // handAnimator[gunIndex].SetBool("Sight", false);
+        if(currentAmmo <= 0)
+            handAnimator[gunIndex].SetInteger("Reload", 0);
+        else
+            handAnimator[gunIndex].SetInteger("Reload", 1);
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
         instanceData[1] = 1;
@@ -436,15 +537,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
         yield return new WaitForSeconds(reloadingTime);
-        handAnimator.SetInteger("Reload", 0);
+        handAnimator[gunIndex].SetInteger("Reload", -1);
+       // handAnimator[gunIndex].SetBool("Sight", false);
+        int clip = totalAmmo;
+        totalAmmo = totalAmmo - clipSize + currentAmmo;
 
-        int clip = totalAmmo - clipSize + currentAmmo;
-        totalAmmo = clip;
-        if(clip > clipSize)
+        if(totalAmmo <= 0){
+            currentAmmo = clip;
+            totalAmmo = 0;
+        }else
             currentAmmo = clipSize;
-        else 
-            currentAmmo = System.Math.Abs(clip);
-
+            
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
         isReloading = false;
     }
@@ -452,7 +555,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Melee()
     {   
         
-        handAnimator.SetBool("Melee", true);
+        //handAnimator[gunIndex].SetBool("Melee", true);
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -460,7 +563,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         yield return new WaitForSeconds(meleeTime);
 
-        handAnimator.SetBool("Melee", false);
+        //handAnimator[gunIndex].SetBool("Melee", false);
 
         yield return new WaitForSeconds(0.25f);
 
@@ -469,7 +572,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CreateDamageIndicator(int id, Transform position)
     {      
-        return;
 
         if(this.PV.InstantiationId != id)
             return;
@@ -497,16 +599,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 
         Vector3 targetPosition;
-        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFire")
+        //Debug.Log(CurrentAnimation());
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
             targetPosition = fpsCam.transform.forward;
         else{
             float magnitude;
-            magnitude = walkMagnitude > 0.1 ? 0.1f : 0.05f;
+            magnitude = walkMagnitude > 0.1 ? 0.25f : 0.1f;
             targetPosition = new Vector3(fpsCam.transform.forward.x + Random.Range(-magnitude, magnitude),fpsCam.transform.forward.y + Random.Range(-magnitude, magnitude), fpsCam.transform.forward.z + Random.Range(-magnitude, magnitude));
         }
         if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, range))
         {   
             int amount = 0;
+
+            Debug.Log(hit.transform.tag);
             
             if(hit.transform.tag == "PlayerHead")
                 amount = 50;
@@ -516,6 +621,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 amount = 20;
             else if(hit.transform.tag == "PlayerFeet")
                 amount = 15;
+            else if(hit.transform.tag == "Enemy")
+                hitMarker.BodyHit();
 
             if(amount != 0 ){
                 if(hit.transform.gameObject){
@@ -554,8 +661,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         target.enabled = false;
         target.health = 100;
         yield return new WaitForSeconds(0.3f);
-        float x = Random.Range(-(target.heaven.transform.position.x + 5f), (target.heaven.transform.position.x + 5f));
-        float z = Random.Range(-(target.heaven.transform.position.z + 5f), target.heaven.transform.position.z + 5f);
+        float x = Random.Range((target.heaven.transform.position.x - 5f), (target.heaven.transform.position.x + 5f));
+        float z = Random.Range((target.heaven.transform.position.z - 5f), target.heaven.transform.position.z + 5f);
         target.transform.position = new Vector3(x,target.heaven.transform.position.y + 4f,z);
         yield return new WaitForSeconds(0.3f);
         target.health = 100;
@@ -623,8 +730,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(whoReceivedDamage.health <= 0){
             
                 whoReceivedDamage.health = 0;
+                
+                //GameManager.UpdatePlayer(whoReceivedDamage);
+                //GameManager.UpdatePlayer(whoCausedDamage);
+                PV.RPC("updatePlayer",RpcTarget.AllBuffered);
 
-                RoomManager.updateRequest.Add(true);
+                GameManager.updateRequest.Add(true);
 
                 //PhotonNetwork.Instantiate("AkDroped",whoReceivedDamage.transform.position, Quaternion.identity);
 
@@ -693,6 +804,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }*/
         
     }
+
+    [PunRPC]
+    public void updatePlayer()
+    {   
+        GameManager.UpdatePlayer(this);
+    }
+    
     [PunRPC]
     public void playDeathSound()
     {   
@@ -737,7 +855,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         startSprintAnim = false;
         stopSprintAnim = false;
         if(PV.IsMine){
-            aimPoint.alpha = 1f;
+            //aimPoint.alpha = 1f;
             canvas.gameObject.SetActive(true);
         }
         
@@ -746,20 +864,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     public void OnEvent(EventData photonEvent)
     {
-        if(photonEvent.Code == RoomManager.restartGameEventCode)
+        if(photonEvent.Code == GameManager.restartGameEventCode)
         {
             this.Reset();
-            RoomManager.updateRequest.Add(true); 
+            GameManager.updateRequest.Add(true); 
         }
     }
 
-    private void OnEnable() 
-    {
-        PhotonNetwork.AddCallbackTarget(this);
-    }
-
-    private void OnDisable() 
-    {
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
 }
