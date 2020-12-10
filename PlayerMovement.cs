@@ -25,14 +25,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     public float walkMagnitude;
     public float range = 100f;
-    public float fireRate = 8f;
-    public float impactForce = 20f;
+    public float fireRate = 0.125f;
 
     public int totalAmmo = 280;
     public int clipSize = 30;
-    public int currentAmmo;
-    public int health = 100;
     public int damage = 20;
+
+    public int currentAmmo;
+
+    public int health = 100;
 
     public ParticleSystem muzzleFlash;
     public GameObject impactEffect;
@@ -45,6 +46,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     public Animator bodyAnimator;
     public List<Animator> handAnimator = new List<Animator>();
+    public List<WeaponStats> handWeaponStats = new List<WeaponStats>();
     public List<GameObject> handWeapons = new List<GameObject>();
     public Transform groundCheck;
     public LayerMask groundMask;
@@ -146,6 +148,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(item.tag == "Weapon"){
                     handAnimator.Add(item);
                     handWeapons.Add(item.gameObject);
+
+                    WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
+                    handWeaponStats.Add(weasponStats);
                 }
             }
 
@@ -256,13 +261,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             bodyAnimator.SetBool("Crouch", false);
             targetHeight = 1.9f;
         }
-        /*
+        
         if(Input.GetKey(KeyCode.W) && isGrounded)
         {
             handAnimator[gunIndex].SetBool("W_pressed", true);
         } else {
             handAnimator[gunIndex].SetBool("W_pressed", false);
-        }*/
+        }
 
         fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
 
@@ -272,6 +277,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         float z = Input.GetAxis("Vertical");
 
         walkMagnitude = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).magnitude / Mathf.Sqrt(2.0f);
+
+        
+
+        handAnimator[gunIndex].SetFloat("Walk_magnitude", walkMagnitude);
 
         bodyAnimator.SetFloat("Walk_magnitude", walkMagnitude);
 
@@ -364,7 +373,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 handWeapons[i].SetActive(false);
         }
 
-        //handAnimator[gunIndex].SetInteger("Movement", 0);
+        totalAmmo = handWeaponStats[gunIndex].totalAmmo;
+        clipSize = handWeaponStats[gunIndex].clipSize;
+        damage = handWeaponStats[gunIndex].damage;
+        fireRate = handWeaponStats[gunIndex].fireRate;
+        range = handWeaponStats[gunIndex].range;
+        reloadingTime = handWeaponStats[gunIndex].reloadingTime;
     }
 
     void CheckSpeed()
@@ -394,7 +408,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CheckHands()
     {   
-        //if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "AutomaticFireLoop" || CurrentAnimation() == "Run")
+        //if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "Fire" || CurrentAnimation() == "Run")
             //aimPoint.alpha = 1f;
         //else
             //aimPoint.alpha = 0f;
@@ -427,11 +441,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(noGuns)
                     return;
                 if(currentAmmo > 0){
-                    handAnimator[gunIndex].SetInteger("Fire", 2);
+                    handAnimator[gunIndex].SetInteger("Fire", 1);
                     if(CurrentAnimation() == "Run")
                         return;
                     if(Time.time >= nextTimeToFire){
-                        nextTimeToFire = Time.time + 1f/fireRate;
+                        nextTimeToFire = Time.time + fireRate;
                         Shoot();
                     }
                 }else{
@@ -445,24 +459,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }  
 
             }else{
-                handAnimator[gunIndex].SetInteger("Fire", -1);
+                handAnimator[gunIndex].SetInteger("Fire", 0);
                 
-                if(isAiming || isCrounching || CurrentAnimation() == "ZoomAutomaticFireLoop" || CurrentAnimation() == "AutomaticFireLoop"){
+                if(isAiming || isCrounching || CurrentAnimation() == "ZoomFire" || CurrentAnimation() == "Fire"){
                     isRunning = false;
                     return;
                 }
                 if(Input.GetButton("Fire3") && isGrounded){
                     isRunning = true;
-                    handAnimator[gunIndex].SetInteger("Movement", 2);
+                    handAnimator[gunIndex].SetBool("Run", true);
                     bodyAnimator.SetBool("Run", true);
                 } else {
                     isRunning = false;
-                    
-                    if(walkMagnitude > 0.1)
-                        handAnimator[gunIndex].SetInteger("Movement", 1);
-                    else
-                        handAnimator[gunIndex].SetInteger("Movement", 0);
-
+                    handAnimator[gunIndex].SetBool("Run", false);
                     bodyAnimator.SetBool("Run", false);
                 }
             }
@@ -525,11 +534,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Reload()
     {   
         isAiming = false;
-       // handAnimator[gunIndex].SetBool("Sight", false);
-        if(currentAmmo <= 0)
+        handAnimator[gunIndex].SetBool("Sight", false);
+        /*if(currentAmmo <= 0)
             handAnimator[gunIndex].SetInteger("Reload", 0);
         else
-            handAnimator[gunIndex].SetInteger("Reload", 1);
+            handAnimator[gunIndex].SetInteger("Reload", 1);*/
+        handAnimator[gunIndex].SetInteger("Reload", 1);
+            
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
         instanceData[1] = 1;
@@ -537,7 +548,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
         yield return new WaitForSeconds(reloadingTime);
-        handAnimator[gunIndex].SetInteger("Reload", -1);
+        handAnimator[gunIndex].SetInteger("Reload", 0);
        // handAnimator[gunIndex].SetBool("Sight", false);
         int clip = totalAmmo;
         totalAmmo = totalAmmo - clipSize + currentAmmo;
@@ -585,7 +596,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     void Shoot()
     {   
         shootingAnim = true;
-        if(!isAiming && CurrentAnimation() == "AutomaticFireLoop")
+        if(!isAiming && CurrentAnimation() == "Fire")
             muzzleFlash.Play();
 
         currentAmmo--;
@@ -600,7 +611,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         Vector3 targetPosition;
         //Debug.Log(CurrentAnimation());
-        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomAutomaticFireLoop")
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire")
             targetPosition = fpsCam.transform.forward;
         else{
             float magnitude;
