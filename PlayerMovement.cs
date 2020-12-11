@@ -42,7 +42,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float nextTimeToRun = 0f;
 
     public bool noGuns = false;
-    public int gunIndex = 1;
+    public int gunIndex = 0;
     
     public Animator bodyAnimator;
     public List<Animator> handAnimator = new List<Animator>();
@@ -212,43 +212,49 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 0;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha2)){
             if(gunIndex == 1) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 1;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha3)){
             if(gunIndex == 2) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 2;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha4)){
             if(gunIndex == 3) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 3;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha5)){
             if(gunIndex == 4) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 4;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha6)){
             if(gunIndex == 5) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 5;
             ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         }
 
         this.lifeText.text = health.ToString();
 
-        CheckHands();
         CheckSpeed();
+        CheckHands();
 
         float targetHeight;
         if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
@@ -373,6 +379,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 handWeapons[i].SetActive(false);
         }
 
+        currentAmmo = handWeaponStats[gunIndex].currentAmmo;
         totalAmmo = handWeaponStats[gunIndex].totalAmmo;
         clipSize = handWeaponStats[gunIndex].clipSize;
         damage = handWeaponStats[gunIndex].damage;
@@ -441,12 +448,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(noGuns)
                     return;
                 if(currentAmmo > 0){
-                    handAnimator[gunIndex].SetInteger("Fire", 1);
                     if(CurrentAnimation() == "Run")
                         return;
                     if(Time.time >= nextTimeToFire){
                         nextTimeToFire = Time.time + fireRate;
+                        handAnimator[gunIndex].SetInteger("Fire", 1);
                         Shoot();
+                        return;
                     }
                 }else{
                     handAnimator[gunIndex].SetInteger("Fire", 0);
@@ -485,6 +493,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             StartCoroutine(Melee());
         }else */
 
+        
     }
 
     string CurrentAnimation()
@@ -558,6 +567,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             totalAmmo = 0;
         }else
             currentAmmo = clipSize;
+
+        handWeaponStats[gunIndex].currentAmmo = currentAmmo;
+        handWeaponStats[gunIndex].totalAmmo = totalAmmo;
             
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
         isReloading = false;
@@ -600,6 +612,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             muzzleFlash.Play();
 
         currentAmmo--;
+        handWeaponStats[gunIndex].currentAmmo = currentAmmo;
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -622,18 +635,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {   
             int amount = 0;
 
-            Debug.Log(hit.transform.tag);
-            
             if(hit.transform.tag == "PlayerHead")
-                amount = 50;
+                amount = (int)((damage - (hit.distance)/10) * 1.5);
             else if(hit.transform.tag == "PlayerTorso")
-                amount = 25;
-            else if(hit.transform.tag == "PlayerLegs")
-                amount = 20;
-            else if(hit.transform.tag == "PlayerFeet")
-                amount = 15;
+                amount = (int)((damage - (hit.distance)/10) * 1.25);
+            else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
+                amount = (int)((damage - (hit.distance)/10));
             else if(hit.transform.tag == "Enemy")
                 hitMarker.BodyHit();
+
+            Debug.Log(amount);
 
             if(amount != 0 ){
                 if(hit.transform.gameObject){

@@ -10,4 +10,12 @@ public class WeaponStats : MonoBehaviour
     public float fireRate;
     public float range;
     public float reloadingTime;
+
+    [HideInInspector]
+    public int currentAmmo;
+    
+    void Awake()
+    {
+        currentAmmo = clipSize;
+    }
 }
