@@ -48,6 +48,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     public List<Animator> handAnimator = new List<Animator>();
     public List<WeaponStats> handWeaponStats = new List<WeaponStats>();
     public List<GameObject> handWeapons = new List<GameObject>();
+
+    public Animator currentWeapon;
+
     public Transform groundCheck;
     public LayerMask groundMask;
     
@@ -97,6 +100,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     public Text bulletsText;
     public Text lifeText;
     public Text sensibilidadeText;
+    public Text changeWeaponText;
     public TMP_Text streakText;
 
     public string Nickname;
@@ -142,7 +146,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(PV.IsMine)
 		{   
             Animator [] Animators = GetComponentsInChildren<Animator>();
-
+            
+            currentWeapon = Animators[0];
             foreach (Animator item in Animators)
             {
                 if(item.tag == "Weapon"){
@@ -166,6 +171,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         lifeText = canvasItem[i];
                     else if(canvasItem[i].name == "Sensibilidade")
                         sensibilidadeText = canvasItem[i];
+                    else if(canvasItem[i].name == "GetWeapon")
+                        changeWeaponText = canvasItem[i];
                 }
                 //aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
@@ -693,6 +700,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
     }
 
+    void OnTriggerStay(Collider other) 
+    {
+        if(!PV.IsMine)
+			return;
+        
+        if(this.health <=0)
+            return;
+        
+        if(other.tag == "DroppedWeapon")
+        {   
+            changeWeaponText.text = "Pressione E para pegar " + other.name.ToString();
+        }    
+    }
+
     void OnTriggerEnter(Collider other) 
     {   
         if(!PV.IsMine)
@@ -700,17 +721,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         if(this.health <=0)
             return;
-        /*
-        if(other.tag == "Gun")
-        {   
-            if(this.totalAmmo + 180 > 280)
-                this.totalAmmo = 280;
-            else
-                this.totalAmmo = this.totalAmmo + 180;
-
-            Destroy(other);
-            Debug.Log("Eh gun");
-        }*/
 
         if(other.tag == "Respawn")
         {  
@@ -771,6 +781,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {
         if(!PV.IsMine)
 			return;
+        
+        if(other.tag == "DroppedWeapon")
+        {   
+            changeWeaponText.text = "";
+        }
 
         if(other.tag == "NoGuns")
         {
