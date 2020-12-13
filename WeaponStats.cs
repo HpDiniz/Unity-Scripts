@@ -10,7 +10,8 @@ public class WeaponStats : MonoBehaviour
     public float fireRate;
     public float range;
     public float reloadingTime;
-    public float gunIndex;
+    public int gunIndex;
+    public string gunName;
 
     [HideInInspector]
     public int currentAmmo;

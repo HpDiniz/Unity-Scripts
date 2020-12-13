@@ -46,10 +46,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     public Animator bodyAnimator;
     public List<Animator> handAnimator = new List<Animator>();
-    public List<WeaponStats> handWeaponStats = new List<WeaponStats>();
-    public List<GameObject> handWeapons = new List<GameObject>();
+    public WeaponStats [] handWeaponStats = new WeaponStats[6];
+    public GameObject [] handWeapons = new GameObject[6];
 
-    public Animator currentWeapon;
+    public WeaponStats currentWeapon;
 
     public Transform groundCheck;
     public LayerMask groundMask;
@@ -147,17 +147,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 		{   
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
-            currentWeapon = Animators[0];
+            
             foreach (Animator item in Animators)
             {
                 if(item.tag == "Weapon"){
                     handAnimator.Add(item);
-                    handWeapons.Add(item.gameObject);
-
+                    
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
-                    handWeaponStats.Add(weasponStats);
+                    handWeaponStats[weasponStats.gunIndex] = weasponStats;
+                    handWeapons[weasponStats.gunIndex] = item.gameObject;
                 }
             }
+
+            currentWeapon = handWeaponStats[0];
 
             ChangeGuns();
 
@@ -215,20 +217,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             return;
 
         if(Input.GetKeyDown(KeyCode.Alpha1)){
-            if(gunIndex == 0) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 0;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha2)){
             if(gunIndex == 1) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 1;
             ChangeGuns();
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha3)){
+        } else if(Input.GetKeyDown(KeyCode.Alpha2)){
+            if(gunIndex == 0) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 0;
+            ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+            return;
+        }
+        /*
+        else if(Input.GetKeyDown(KeyCode.Alpha3)){
             if(gunIndex == 2) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 2;
@@ -256,7 +260,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             ChangeGuns();
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
-        }
+        } */
 
         this.lifeText.text = health.ToString();
 
@@ -378,9 +382,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     void ChangeGuns()
     {   
 
-        for (int i = 0; i < handWeapons.Count; i++)
+        for (int i = 0; i < handWeapons.Length; i++)
         {   
-            if(i == gunIndex){
+            WeaponStats weapon = handWeapons[i].gameObject.GetComponent<WeaponStats>();
+            if(weapon.gunIndex == gunIndex){
                 handWeapons[i].SetActive(true); 
             }else
                 handWeapons[i].SetActive(false);
@@ -711,6 +716,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(other.tag == "DroppedWeapon")
         {   
             changeWeaponText.text = "Pressione E para pegar " + other.name.ToString();
+            if(Input.GetKeyDown(KeyCode.E)){
+                ChangeDroppedGun drop = other.gameObject.GetComponent<ChangeDroppedGun>();
+                currentWeapon = drop.ChangeWeapons(currentWeapon);
+                gunIndex = currentWeapon.gunIndex;
+            }
         }    
     }
 
