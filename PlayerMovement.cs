@@ -46,10 +46,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     public Animator bodyAnimator;
     public List<Animator> handAnimator = new List<Animator>();
-    public WeaponStats [] handWeaponStats = new WeaponStats[6];
-    public GameObject [] handWeapons = new GameObject[6];
+    public List<WeaponStats> handWeaponStats = new List<WeaponStats>();
+    public List<GameObject> handWeapons = new List<GameObject>();
 
-    public WeaponStats currentWeapon;
+    public Animator currentWeapon;
 
     public Transform groundCheck;
     public LayerMask groundMask;
@@ -147,19 +147,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 		{   
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
-            
+            currentWeapon = Animators[0];
             foreach (Animator item in Animators)
             {
                 if(item.tag == "Weapon"){
                     handAnimator.Add(item);
-                    
+                    handWeapons.Add(item.gameObject);
+
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
-                    handWeaponStats[weasponStats.gunIndex] = weasponStats;
-                    handWeapons[weasponStats.gunIndex] = item.gameObject;
+                    handWeaponStats.Add(weasponStats);
                 }
             }
-
-            currentWeapon = handWeaponStats[0];
 
             ChangeGuns();
 
@@ -217,22 +215,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             return;
 
         if(Input.GetKeyDown(KeyCode.Alpha1)){
-            if(gunIndex == 1) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 1;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha2)){
             if(gunIndex == 0) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 0;
             ChangeGuns();
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
-        }
-        /*
-        else if(Input.GetKeyDown(KeyCode.Alpha3)){
+        } else if(Input.GetKeyDown(KeyCode.Alpha2)){
+            if(gunIndex == 1) return;
+            handAnimator[gunIndex].SetTrigger("TakeOut");
+            gunIndex = 1;
+            ChangeGuns();
+            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+            return;
+        } else if(Input.GetKeyDown(KeyCode.Alpha3)){
             if(gunIndex == 2) return;
             handAnimator[gunIndex].SetTrigger("TakeOut");
             gunIndex = 2;
@@ -260,7 +256,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             ChangeGuns();
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
-        } */
+        }
 
         this.lifeText.text = health.ToString();
 
@@ -382,10 +378,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     void ChangeGuns()
     {   
 
-        for (int i = 0; i < handWeapons.Length; i++)
+        for (int i = 0; i < handWeapons.Count; i++)
         {   
-            WeaponStats weapon = handWeapons[i].gameObject.GetComponent<WeaponStats>();
-            if(weapon.gunIndex == gunIndex){
+            if(i == gunIndex){
                 handWeapons[i].SetActive(true); 
             }else
                 handWeapons[i].SetActive(false);
@@ -500,7 +495,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         /*if(Input.GetKeyDown(KeyCode.F)){
             if(noGuns || isAiming)
                 return;
-
             MeleeAttack();
             StartCoroutine(Melee());
         }else */
@@ -520,11 +514,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     void MeleeAttack()
     {
         RaycastHit hit;
-
         if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, 2f))
         {   
             int amount = 0;
-
             if(hit.transform.tag == "PlayerHead")
                 amount = 100;
             else if(hit.transform.tag == "PlayerTorso")
@@ -533,13 +525,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 amount = 100;
             else if(hit.transform.tag == "PlayerFeet")
                 amount = 100;
-
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
                     if(target.health > 0)
                         hitMarker.BodyHit();
-
                     object[] instanceData = new object[3];
                     instanceData[0] = this.PV.InstantiationId;
                     instanceData[1] = target.PV.InstantiationId;
@@ -718,8 +708,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             changeWeaponText.text = "Pressione E para pegar " + other.name.ToString();
             if(Input.GetKeyDown(KeyCode.E)){
                 ChangeDroppedGun drop = other.gameObject.GetComponent<ChangeDroppedGun>();
-                currentWeapon = drop.ChangeWeapons(currentWeapon);
-                gunIndex = currentWeapon.gunIndex;
+                gunIndex = drop.ChangeWeapons(gunIndex);
+                ChangeGuns();
+                bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+                //currentWeapon = drop.ChangeWeapons(currentWeapon);
+                //gunIndex = currentWeapon.gunIndex;
             }
         }    
     }

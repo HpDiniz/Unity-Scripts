@@ -12,10 +12,6 @@ public class ChangeDroppedGun : MonoBehaviour
     void Start()
     {   
         weapons = GetComponentsInChildren<WeaponStats>();
-        //GameObject[] saas = GetComponentsInChildren<GameObject>();
-        //Debug.Log("tamanho: " + weapons.Length);
-        //Debug.Log("saas: " + saas.Length);
-        //weapons[0].gameObject.SetActive(true);
 
         for (int i = 0; i < weapons.Length; i++)
         {
@@ -39,8 +35,9 @@ public class ChangeDroppedGun : MonoBehaviour
         }
     }*/
 
-    public WeaponStats ChangeWeapons(WeaponStats currentWeapon)
+    public int ChangeWeapons(int currentWeapon)
     {   
+        int index = currentGunIndex;
         WeaponStats newWeapon = null;
 
         for (int i = 0; i < weapons.Length; i++)
@@ -48,12 +45,27 @@ public class ChangeDroppedGun : MonoBehaviour
             if(weapons[i].gunIndex == currentGunIndex){
                 newWeapon = weapons[i];
                 weapons[i].gameObject.SetActive(false);
-            }else if(weapons[i].gunIndex == currentWeapon.gunIndex){
+            }else if(weapons[i].gunIndex == currentWeapon){
                 weapons[i].gameObject.SetActive(true);
                 this.gameObject.name = weapons[i].gunName;
             }
         }
 
-        return newWeapon;
+        currentGunIndex = currentWeapon;
+
+        UpdateWeapons();
+        return index;
+    }
+
+    void UpdateWeapons()
+    {
+        for (int i = 0; i < weapons.Length; i++)
+        {
+            if(weapons[i].gunIndex == currentGunIndex){
+                weapons[i].gameObject.SetActive(true);
+                this.gameObject.name = weapons[i].gunName;
+            }else
+                weapons[i].gameObject.SetActive(false);
+        }
     }
 }
