@@ -10,10 +10,12 @@ using TMPro;
 
 public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCallback, IOnEventCallback
 {   
+    List<AudioSource> generalAudios = new List<AudioSource>();
+
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
 
-    private PlayerFootsteps playerFootsteps;
+    private PlayerSounds playerSound;
 
     private float sprint_Volume = 0.6f;
     private float crouch_Volume = 0.1f;
@@ -23,15 +25,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float sprint_Step_Distance = 0.38f;
     private float crouch_Step_Distance = 0.54f;
 
-    public float walkMagnitude;
-    public float range = 100f;
-    public float fireRate = 0.125f;
+    [HideInInspector] public float walkMagnitude;
 
-    public int totalAmmo = 280;
-    public int clipSize = 30;
-    public int damage = 20;
+    [HideInInspector] public float range;
+    [HideInInspector] public float fireRate;
+    [HideInInspector] public int maxAmmo;
+    [HideInInspector] public int totalAmmo;
+    [HideInInspector] public int clipSize;
+    [HideInInspector] public int damage;
+    [HideInInspector] public int currentAmmo;
 
-    public int currentAmmo;
+    ChangeDroppedGun nearDroppedWeapon;
 
     public int health = 100;
 
@@ -42,14 +46,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float nextTimeToRun = 0f;
 
     public bool noGuns = false;
+    bool usingPrimary = false;
     public int gunIndex = 0;
     
     public Animator bodyAnimator;
+    public WeaponStats primaryGun;
+    public WeaponStats secondaryGun;
     public List<Animator> handAnimator = new List<Animator>();
-    public List<WeaponStats> handWeaponStats = new List<WeaponStats>();
     public List<GameObject> handWeapons = new List<GameObject>();
-
-    public Animator currentWeapon;
 
     public Transform groundCheck;
     public LayerMask groundMask;
@@ -83,9 +87,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     GhostPosition ghostPosition;
     HeadPosition headPosition;
-    AudioSource aHeroHasFallen;
-    AudioSource gireiSound;
-    AudioSource ameacaSound;
 	public CharacterController controller;
     public CanvasGroup aimPoint;
     Transform heaven;
@@ -123,31 +124,39 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
         canvas = GetComponentInChildren<Canvas>();
-        playerFootsteps = GetComponent<PlayerFootsteps>();
+        playerSound = GetComponent<PlayerSounds>();
 	}
 
 
     void Start()
     {   
         walkMagnitude = 0f;
-        playerFootsteps.volume_Min = walk_Volume_Min;
-        playerFootsteps.volume_Max = walk_Volume_Max;
-        playerFootsteps.step_Distance = walk_Step_Distance;
+        playerSound.volume_Min = walk_Volume_Min;
+        playerSound.volume_Max = walk_Volume_Max;
+        playerSound.step_Distance = walk_Step_Distance;
 
-        aHeroHasFallen = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
-        ameacaSound = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
-        gireiSound = GameObject.Find("gireiSound").GetComponent<AudioSource>();
+        AudioSource auxAudio = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
+        if(auxAudio != null)
+            generalAudios.Add(auxAudio);
+        auxAudio = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
+        if(auxAudio != null)
+            generalAudios.Add(auxAudio);
+        auxAudio = GameObject.Find("gireiSound").GetComponent<AudioSource>();
+        if(auxAudio != null)
+            generalAudios.Add(auxAudio);
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
         GameManager.updateRequest.Add(true);
-        PV.RPC("updatePlayer",RpcTarget.AllBuffered);
+        //PV.RPC("updatePlayer",RpcTarget.AllBuffered);
         //updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
         //updateRanking.UpdatePlayers(); 
+
         
+            
+
         if(PV.IsMine)
 		{   
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
-            currentWeapon = Animators[0];
             foreach (Animator item in Animators)
             {
                 if(item.tag == "Weapon"){
@@ -155,11 +164,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     handWeapons.Add(item.gameObject);
 
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
-                    handWeaponStats.Add(weasponStats);
+
+                    if(weasponStats.gunIndex == 0)
+                        secondaryGun = weasponStats;
+                    else if(weasponStats.gunIndex == 1)
+                        primaryGun = weasponStats;
                 }
             }
 
-            ChangeGuns();
+            ChangeGuns(primaryGun);
 
             if(canvas){
                 Text [] canvasItem = canvas.GetComponentsInChildren<Text>();
@@ -191,6 +204,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             lifeText.text = health.ToString();
             headPosition.Invisible();
             ghostPosition.Invisible();
+            usingPrimary = true;
         }
         else
 		{
@@ -201,7 +215,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(controller);
             Destroy(canvas);
 		}
-        GameManager.updateRequest.Add(true);
+        //GameManager.updateRequest.Add(true);
     }
 
     // Update is called once per frame
@@ -214,49 +228,45 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(waitingForSpawn)
             return;
 
+        if(nearDroppedWeapon){
+            float distance = Vector3.Distance(this.transform.position, nearDroppedWeapon.transform.position);
+            if(distance < 1.4){
+                if(nearDroppedWeapon.currentGunIndex == primaryGun.gunIndex){
+                    if(primaryGun.totalAmmo < primaryGun.maxAmmo){
+                        primaryGun.totalAmmo = primaryGun.totalAmmo + primaryGun.maxAmmo/2 > primaryGun.maxAmmo ? primaryGun.maxAmmo : primaryGun.totalAmmo + primaryGun.maxAmmo/2;
+                        ChangeGuns(primaryGun);
+                        PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.gameObject.GetInstanceID());
+                        playerSound.PlaySound(3,0.4f,1);
+                        bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+                    }
+                } else {
+                    changeWeaponText.text = "Pressione E para pegar " + nearDroppedWeapon.name.ToString();
+                    if(Input.GetKeyDown(KeyCode.E)){
+                        usingPrimary = true;
+                        ChangeGuns(primaryGun = nearDroppedWeapon.ChangeWeapons(primaryGun));
+                        bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+                        changeWeaponText.text = "";
+                    }
+                }
+            } else {
+                changeWeaponText.text = "";
+                nearDroppedWeapon = null;
+            }
+        }
+
         if(Input.GetKeyDown(KeyCode.Alpha1)){
-            if(gunIndex == 0) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 0;
-            ChangeGuns();
+            if(usingPrimary) return;
+            usingPrimary = true;
+            ChangeGuns(primaryGun);
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
         } else if(Input.GetKeyDown(KeyCode.Alpha2)){
-            if(gunIndex == 1) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 1;
-            ChangeGuns();
+            if(!usingPrimary) return;
+            usingPrimary = false;
+            ChangeGuns(secondaryGun);
             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha3)){
-            if(gunIndex == 2) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 2;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha4)){
-            if(gunIndex == 3) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 3;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha5)){
-            if(gunIndex == 4) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 4;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        } else if(Input.GetKeyDown(KeyCode.Alpha6)){
-            if(gunIndex == 5) return;
-            handAnimator[gunIndex].SetTrigger("TakeOut");
-            gunIndex = 5;
-            ChangeGuns();
-            bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
-        }
+        } 
 
         this.lifeText.text = health.ToString();
 
@@ -375,9 +385,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
 
-    void ChangeGuns()
+    void ChangeGuns(WeaponStats weapon)
     {   
-
+        Debug.Log("ChangeGuns: " + gunIndex + "   newWeapon:" + weapon.gunIndex);
+        gunIndex = weapon.gunIndex;
         for (int i = 0; i < handWeapons.Count; i++)
         {   
             if(i == gunIndex){
@@ -385,37 +396,37 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else
                 handWeapons[i].SetActive(false);
         }
-
-        currentAmmo = handWeaponStats[gunIndex].currentAmmo;
-        totalAmmo = handWeaponStats[gunIndex].totalAmmo;
-        clipSize = handWeaponStats[gunIndex].clipSize;
-        damage = handWeaponStats[gunIndex].damage;
-        fireRate = handWeaponStats[gunIndex].fireRate;
-        range = handWeaponStats[gunIndex].range;
-        reloadingTime = handWeaponStats[gunIndex].reloadingTime;
+        maxAmmo = weapon.maxAmmo;
+        currentAmmo = weapon.currentAmmo;
+        totalAmmo = weapon.totalAmmo;
+        clipSize = weapon.clipSize;
+        damage = weapon.damage;
+        fireRate = weapon.fireRate;
+        range = weapon.range;
+        reloadingTime = weapon.reloadingTime;
     }
 
     void CheckSpeed()
     {   
         if(isCrounching){
-            playerFootsteps.step_Distance = crouch_Step_Distance;
-            playerFootsteps.volume_Min = crouch_Volume;
-            playerFootsteps.volume_Max = crouch_Volume;
+            playerSound.step_Distance = crouch_Step_Distance;
+            playerSound.volume_Min = crouch_Volume;
+            playerSound.volume_Max = crouch_Volume;
             this.speed = 3.5f;
         }else if(isAiming){
-            playerFootsteps.step_Distance = crouch_Step_Distance;
-            playerFootsteps.volume_Min = crouch_Volume;
-            playerFootsteps.volume_Max = crouch_Volume;
+            playerSound.step_Distance = crouch_Step_Distance;
+            playerSound.volume_Min = crouch_Volume;
+            playerSound.volume_Max = crouch_Volume;
             this.speed = 4f;
         }else if(CurrentAnimation() == "Run"){
-            playerFootsteps.step_Distance = sprint_Step_Distance;
-            playerFootsteps.volume_Min = sprint_Volume;
-            playerFootsteps.volume_Max = sprint_Volume;
+            playerSound.step_Distance = sprint_Step_Distance;
+            playerSound.volume_Min = sprint_Volume;
+            playerSound.volume_Max = sprint_Volume;
             this.speed = 8f;
         }else{
-            playerFootsteps.step_Distance = walk_Step_Distance;
-            playerFootsteps.volume_Min = walk_Volume_Min;
-            playerFootsteps.volume_Max = walk_Volume_Max;
+            playerSound.step_Distance = walk_Step_Distance;
+            playerSound.volume_Min = walk_Volume_Min;
+            playerSound.volume_Max = walk_Volume_Max;
             this.speed = 5f;
         }
     }
@@ -554,7 +565,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = 1;
+        instanceData[1] = 6;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
@@ -570,8 +581,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }else
             currentAmmo = clipSize;
 
-        handWeaponStats[gunIndex].currentAmmo = currentAmmo;
-        handWeaponStats[gunIndex].totalAmmo = totalAmmo;
+        if(usingPrimary){
+            primaryGun.currentAmmo = currentAmmo;
+            primaryGun.totalAmmo = totalAmmo;
+        } else {
+            secondaryGun.currentAmmo = currentAmmo;
+            secondaryGun.totalAmmo = totalAmmo;
+        }
             
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
         isReloading = false;
@@ -604,7 +620,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(!PV.IsMine)
 			return;
 
-        damageIndicator.CreateIndicator(position);
+        //damageIndicator.CreateIndicator(position);
     }
 
     void Shoot()
@@ -614,11 +630,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             muzzleFlash.Play();
 
         currentAmmo--;
-        handWeaponStats[gunIndex].currentAmmo = currentAmmo;
+        if(usingPrimary)
+            primaryGun.currentAmmo = currentAmmo;
+        else
+            secondaryGun.currentAmmo = currentAmmo;
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = 0;
+        instanceData[1] = gunIndex;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         RaycastHit hit;
@@ -674,17 +693,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator Respawn(PlayerMovement target) 
     {   
+        int index = target.primaryGun.gunIndex;
         target.killStreak = 0;
         target.jumpingAnim = false;
         target.runningAnim = false;
         target.idleAnim = true;
         target.velocity.y = -2f;
-        target.totalAmmo = 280;
-        target.clipSize = 30;
-        target.currentAmmo = 30;
+        target.primaryGun.ResetStats();
+        target.secondaryGun.ResetStats();
+        ChangeGuns(target.primaryGun);
+        target.usingPrimary = true;
         target.enabled = false;
         target.health = 100;
         yield return new WaitForSeconds(0.3f);
+        object[] instanceData = new object[1];
+        instanceData[0] = index;
+        PhotonNetwork.Instantiate("DroppedGun",target.transform.position, Quaternion.identity,0,instanceData);
         float x = Random.Range((target.heaven.transform.position.x - 5f), (target.heaven.transform.position.x + 5f));
         float z = Random.Range((target.heaven.transform.position.z - 5f), target.heaven.transform.position.z + 5f);
         target.transform.position = new Vector3(x,target.heaven.transform.position.y + 4f,z);
@@ -705,16 +729,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         if(other.tag == "DroppedWeapon")
         {   
-            changeWeaponText.text = "Pressione E para pegar " + other.name.ToString();
-            if(Input.GetKeyDown(KeyCode.E)){
-                ChangeDroppedGun drop = other.gameObject.GetComponent<ChangeDroppedGun>();
-                gunIndex = drop.ChangeWeapons(gunIndex);
-                ChangeGuns();
-                bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-                //currentWeapon = drop.ChangeWeapons(currentWeapon);
-                //gunIndex = currentWeapon.gunIndex;
-            }
-        }    
+            nearDroppedWeapon = other.gameObject.GetComponentInParent<ChangeDroppedGun>();
+        }
     }
 
     void OnTriggerEnter(Collider other) 
@@ -736,6 +752,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             noGuns = true;
         }
+    }
+
+    [PunRPC]
+    public void DestroyObject(int instanceID) //, PlayerMovement playerWhoShooted
+    {   
+        GameObject [] objects = GameObject.FindGameObjectsWithTag("DropGameObject");
+        foreach (GameObject go in objects)
+        {
+            if(go.GetInstanceID() == instanceID){
+                Destroy(go);
+                break;
+            }
+        }
+        
     }
     
     [PunRPC]
@@ -768,9 +798,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 
                 //GameManager.UpdatePlayer(whoReceivedDamage);
                 //GameManager.UpdatePlayer(whoCausedDamage);
-                PV.RPC("updatePlayer",RpcTarget.AllBuffered);
+                //PV.RPC("updatePlayer",RpcTarget.AllBuffered);
 
-                GameManager.updateRequest.Add(true);
+                //GameManager.updateRequest.Add(true);
 
                 //PhotonNetwork.Instantiate("AkDroped",whoReceivedDamage.transform.position, Quaternion.identity);
 
@@ -798,17 +828,26 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     void Kill(PlayerMovement target, PlayerMovement enemy)
     {   
-        if(target.waitingForSpawn == false)
+        if(target != null && target.waitingForSpawn == false)
         {   
             target.deathCounter++;
             
+
             if(enemy != null && (enemy.PV.InstantiationId != target.PV.InstantiationId)){
                 enemy.killCounter ++;
                 enemy.killStreak ++;
                 CheckKillStreak(enemy);
             } else {
-                PV.RPC("playDeathSound",RpcTarget.All);
+                object[] instanceData = new object[2];
+                instanceData[0] = 0;
+                instanceData[1] = true;
+                PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
             }
+            /*object[] instanceData = new object[2];
+            instanceData[0] = target.primaryGun.gunIndex;
+            PhotonNetwork.Instantiate("DroppedGun",target.transform.position, Quaternion.identity,0,instanceData);
+*/
+
             target.waitingForSpawn = true;
             //updateRanking.UpdatePlayers();
             StartCoroutine(Respawn(target));
@@ -830,13 +869,25 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(player.killStreak == 10){
             if(this.PV.InstantiationId == player.PV.InstantiationId)
                 StartCoroutine(exibeKillStreak(player,"10"));
-            PV.RPC("playGireiSound",RpcTarget.All);
+            object[] instanceData = new object[2];
+            instanceData[0] = 2;
+            instanceData[1] = false;
+            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
         } else if(player.killStreak == 5){
             if(this.PV.InstantiationId == player.PV.InstantiationId)
                 StartCoroutine(exibeKillStreak(player,"5"));
-            PV.RPC("playAmeacaSound",RpcTarget.All);
-        }else
-            PV.RPC("playDeathSound",RpcTarget.All);
+            object[] instanceData = new object[2];
+            instanceData[0] = 1;
+            instanceData[1] = false;
+            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
+        }else{
+            /*
+            object[] instanceData = new object[2];
+            instanceData[0] = 2;
+            instanceData[1] = true;
+            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
+            */
+        }
         /*
         else if(player.killStreak == 5){
             StartCoroutine(exibeKillStreak(player,"5"));
@@ -852,24 +903,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
     
     [PunRPC]
-    public void playDeathSound()
+    public void playGeneralSound(object[] instantiationData)
     {   
-        if(!gireiSound.isPlaying)
-            aHeroHasFallen.Play(0);
-    }
-
-    [PunRPC]
-    public void playAmeacaSound()
-    {   
-        if(!ameacaSound.isPlaying && !gireiSound.isPlaying)
-            ameacaSound.Play(0);
-    }
-
-    [PunRPC]
-    public void playGireiSound()
-    {
-        if(!gireiSound.isPlaying)
-            gireiSound.Play(0);
+        if((bool)instantiationData[1]){
+            for (int i = 0; i < generalAudios.Count; i++)
+            {
+                if(generalAudios[i].isPlaying)
+                    return;
+            }
+        }
+        if(!generalAudios[(int)instantiationData[0]].isPlaying)
+            generalAudios[(int)instantiationData[0]].Play(0);
     }
 
     public void Reset()

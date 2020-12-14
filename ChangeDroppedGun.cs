@@ -1,13 +1,23 @@
-﻿using System.Collections;
+﻿using Photon.Pun;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ChangeDroppedGun : MonoBehaviour
+public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
 {
     public WeaponStats [] weapons;
-    public int currentGunIndex = 1;
-    public float nextTimeToFire = 5f;
+    public int currentGunIndex = 4;
+    public WeaponStats currentWeapon;
     //public List<WeaponStats> weapons = new List<WeaponStats>();
+
+    public void OnPhotonInstantiate(PhotonMessageInfo info)
+    {   
+        
+        object[] instantiationData = info.photonView.InstantiationData;
+
+        currentGunIndex = (int)instantiationData[0];
+        
+    }
 
     void Start()
     {   
@@ -18,54 +28,43 @@ public class ChangeDroppedGun : MonoBehaviour
             if(weapons[i].gunIndex == currentGunIndex){
                 weapons[i].gameObject.SetActive(true);
                 this.gameObject.name = weapons[i].gunName;
+                currentWeapon = weapons[i];
             }else
                 weapons[i].gameObject.SetActive(false);
         }
     }
-
-    /*Update is called once per frame
-    void Update()
-    {
-        if(Time.time >= nextTimeToFire){
-            nextTimeToFire = Time.time + 5f;
-            if(currentGunIndex < 4)
-                ChangeWeapons(weapons[currentGunIndex + 1]);
-            else
-                ChangeWeapons(weapons[0]);
-        }
-    }*/
-
-    public int ChangeWeapons(int currentWeapon)
+    
+    public WeaponStats ChangeWeapons(WeaponStats oldWeapon)
     {   
-        int index = currentGunIndex;
-        WeaponStats newWeapon = null;
+        WeaponStats newWeapon = currentWeapon;
+
+        Debug.Log("Current: " + currentGunIndex + "   Old:" + oldWeapon.gunIndex);
 
         for (int i = 0; i < weapons.Length; i++)
         {
             if(weapons[i].gunIndex == currentGunIndex){
-                newWeapon = weapons[i];
+                newWeapon.totalAmmo = weapons[i].totalAmmo;
+                newWeapon.currentAmmo = weapons[i].currentAmmo;
                 weapons[i].gameObject.SetActive(false);
-            }else if(weapons[i].gunIndex == currentWeapon){
+            }
+        }
+
+        for (int i = 0; i < weapons.Length; i++)
+        {
+            if(weapons[i].gunIndex == oldWeapon.gunIndex){
+                weapons[i].totalAmmo = oldWeapon.totalAmmo;
+                weapons[i].currentAmmo = oldWeapon.currentAmmo;
+
                 weapons[i].gameObject.SetActive(true);
                 this.gameObject.name = weapons[i].gunName;
             }
         }
 
-        currentGunIndex = currentWeapon;
 
-        UpdateWeapons();
-        return index;
+        currentGunIndex = oldWeapon.gunIndex;
+        currentWeapon = oldWeapon;
+        
+        return newWeapon;
     }
 
-    void UpdateWeapons()
-    {
-        for (int i = 0; i < weapons.Length; i++)
-        {
-            if(weapons[i].gunIndex == currentGunIndex){
-                weapons[i].gameObject.SetActive(true);
-                this.gameObject.name = weapons[i].gunName;
-            }else
-                weapons[i].gameObject.SetActive(false);
-        }
-    }
 }

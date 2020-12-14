@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerFootsteps : MonoBehaviour
+public class PlayerSounds : MonoBehaviour
 {
     [SerializeField]
-    private AudioSource footstep_Sound;
+    private AudioSource [] audioController;
 
     [SerializeField]
-    private AudioClip[] footstep_Clip;
+    private AudioClip[] soundClips;
+
+    public int footStepLenght = 3;
 
     private PlayerMovement characterController;
 
@@ -24,7 +26,7 @@ public class PlayerFootsteps : MonoBehaviour
 
     void Awake()
     {
-        footstep_Sound = GetComponent<AudioSource>();
+        audioController = GetComponents<AudioSource>();
         characterController = GetComponent<PlayerMovement>();
     }
 
@@ -37,6 +39,10 @@ public class PlayerFootsteps : MonoBehaviour
     void Update()
     {
         CheckFootstepSound();
+
+        /*audioController.volume = 1f;
+        audioController.clip = soundClips[3];
+        audioController.Play();*/
     }
 
     void CheckFootstepSound(){
@@ -49,15 +55,15 @@ public class PlayerFootsteps : MonoBehaviour
 
             if(accumulated_Distance > step_Distance)
             {
-                footstep_Sound.volume = Random.Range(volume_Min, volume_Max);
+                float volume = Random.Range(volume_Min, volume_Max);
 
-                int newRandom = Random.Range(0, footstep_Clip.Length);
+                int newRandom = Random.Range(0, footStepLenght);
 
                 while(newRandom == lastRandom)
-                    newRandom = Random.Range(0, footstep_Clip.Length);
-                    
-                footstep_Sound.clip = footstep_Clip[newRandom];
-                footstep_Sound.Play();
+                    newRandom = Random.Range(0, footStepLenght);
+                
+                PlaySound(newRandom,volume,0);
+                
                 lastRandom = newRandom;
 
                 accumulated_Distance = 0f;
@@ -65,5 +71,12 @@ public class PlayerFootsteps : MonoBehaviour
         } else {
             accumulated_Distance = 0f;
         }
+    }
+
+    public void PlaySound(int index,float volume, int audioIndex)
+    {   
+        audioController[audioIndex].volume = volume;
+        audioController[audioIndex].clip = soundClips[index];
+        audioController[audioIndex].Play();
     }
 }
