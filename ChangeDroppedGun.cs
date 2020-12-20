@@ -24,7 +24,7 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
         weapons = GetComponentsInChildren<WeaponStats>();
 
         for (int i = 0; i < weapons.Length; i++)
-        {
+        {   
             if(weapons[i].gunIndex == currentGunIndex){
                 weapons[i].gameObject.SetActive(true);
                 this.gameObject.name = weapons[i].gunName;
@@ -38,8 +38,6 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
     {   
         WeaponStats newWeapon = currentWeapon;
 
-        Debug.Log("Current: " + currentGunIndex + "   Old:" + oldWeapon.gunIndex);
-
         for (int i = 0; i < weapons.Length; i++)
         {
             if(weapons[i].gunIndex == currentGunIndex){
@@ -47,6 +45,11 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
                 newWeapon.currentAmmo = weapons[i].currentAmmo;
                 weapons[i].gameObject.SetActive(false);
             }
+        }
+
+        if(oldWeapon == null){
+            this.gameObject.SetActive(false);
+            return newWeapon;
         }
 
         for (int i = 0; i < weapons.Length; i++)
@@ -64,7 +67,9 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
         currentGunIndex = oldWeapon.gunIndex;
         currentWeapon = oldWeapon;
         
+        
         return newWeapon;
+        
     }
 
 }

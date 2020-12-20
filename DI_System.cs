@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class DI_System : MonoBehaviour
 {
+    /*
     [Header("References")]
     [SerializeField] private DamageIndicator indicatorPrefab = null;
     [SerializeField] private RectTransform holder = null;
@@ -35,5 +36,5 @@ public class DI_System : MonoBehaviour
 
         Indicators.Add(target, newIndicator);
     }
-
+    */
 }

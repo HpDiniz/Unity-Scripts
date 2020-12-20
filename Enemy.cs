@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    /*
     public float health = 70;
     PlayerMovement target;
     private Collider [] colliders;
@@ -57,4 +58,5 @@ public class Enemy : MonoBehaviour
 
         }
     }
+    */
 }
