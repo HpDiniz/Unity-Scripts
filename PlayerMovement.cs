@@ -36,24 +36,26 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int currentAmmo;
 
     ChangeDroppedGun nearDroppedWeapon;
+    Transform nearTransformDroppedWeapon;
 
     public int health = 100;
 
-    public ParticleSystem muzzleFlash;
-    public GameObject impactEffect;
+    [HideInInspector] public ParticleSystem muzzleFlash;
+    [HideInInspector] public GameObject impactEffect;
 
     private float nextTimeToFire = 0f;
 
-    public bool noGuns = false;
+    [HideInInspector] public bool noGuns = false;
     byte actualWeapon;
-    public int gunIndex = 0;
+    [HideInInspector] public int gunIndex = 0;
     
-    public Animator bodyAnimator;
-    public WeaponStats primaryGun;
-    public WeaponStats secondaryGun;
-    public WeaponStats terciaryGun;
-    public List<Animator> handAnimator = new List<Animator>();
-    public List<GameObject> handWeapons = new List<GameObject>();
+    [HideInInspector] public Animator bodyAnimator;
+    [HideInInspector] public WeaponStats primaryGun;
+    [HideInInspector] public WeaponStats secondaryGun;
+    [HideInInspector] public WeaponStats terciaryGun;
+    [HideInInspector] public List<Animator> handAnimator = new List<Animator>();
+    [HideInInspector] public List<GameObject> handWeapons = new List<GameObject>();
+    GhostPosition[] ghostPosition;
 
     public Transform groundCheck;
     public LayerMask groundMask;
@@ -63,46 +65,45 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     public float jumpHeight = 1.3f;
     public float groundDistance = 0.05f;
 
-    public int killStreak = 0;
-    public int killCounter = 0;
-    public int deathCounter = 0;
+    [HideInInspector] public int killStreak = 0;
+    [HideInInspector] public int killCounter = 0;
+    [HideInInspector] public int deathCounter = 0;
 
     IEnumerator actualRoutine; // create an IEnumerator object
-
     Vector3 velocity;
 
-    public bool isGrounded;
     bool isAiming = false;
     bool isReloading = false;
-    public bool waitingForSpawn;
+    [HideInInspector] public bool isGrounded;
+    [HideInInspector] public bool waitingForSpawn;
 
-    public bool isCrounching = false;
-    public bool jumpingAnim = false;
-    public bool runningAnim = false;
-    public bool sprintingAnim = false;
-    public bool idleAnim = true;
-    public bool shootingAnim = false;
+    [HideInInspector] public bool isCrounching = false;
+    [HideInInspector] public bool jumpingAnim = false;
+    [HideInInspector] public bool runningAnim = false;
+    [HideInInspector] public bool sprintingAnim = false;
+    [HideInInspector] public bool idleAnim = true;
+    [HideInInspector] public bool shootingAnim = false;
     
-    GhostPosition ghostPosition;
-    HeadPosition headPosition;
-	public CharacterController controller;
-    public CanvasGroup aimPoint;
-    Transform heaven;
     Vector3 move;
-    public Camera fpsCam;
-    public Canvas canvas;
+    Transform heaven;
     HitMarker hitMarker;
-    public MouseLook mouseLook;
     DI_System damageIndicator;
+    HeadPosition headPosition;
 
-    public PhotonView PV;
-    public Text bulletsText;
-    public Text lifeText;
-    public Text sensibilidadeText;
-    public Text changeWeaponText;
-    public TMP_Text streakText;
+    [HideInInspector] public Camera fpsCam;
+    [HideInInspector] public Canvas canvas;
+    [HideInInspector] public MouseLook mouseLook;
+    [HideInInspector] public CharacterController controller;
+    [HideInInspector] public CanvasGroup aimPoint;
 
-    public string Nickname;
+    [HideInInspector] public PhotonView PV;
+    [HideInInspector] public Text bulletsText;
+    [HideInInspector] public Text lifeText;
+    [HideInInspector] public Text sensibilidadeText;
+    [HideInInspector] public Text changeWeaponText;
+    [HideInInspector] public TMP_Text streakText;
+
+    [HideInInspector] public string Nickname;
 
 
     public void OnPhotonInstantiate(PhotonMessageInfo info)
@@ -116,7 +117,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 	{   
         headPosition = GetComponentInChildren<HeadPosition>();
         GameManager.players.Add(this);
-        ghostPosition = GetComponentInChildren<GhostPosition>();
+        ghostPosition = GetComponentsInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
         fpsCam = GetComponentInChildren<Camera>();
 		controller = GetComponent<CharacterController>();
@@ -143,7 +144,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(auxAudio != null)
             generalAudios.Add(auxAudio);
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
-        GameManager.updateRequest.Add(true);
+
+        //GameManager.updateRequest.Add(true);
 
         //PV.RPC("updatePlayer",RpcTarget.AllBuffered);
         //updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
@@ -155,12 +157,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
             foreach (Animator item in Animators)
             {
-                if(item.tag == "Weapon"){
+                if(item.gameObject.layer == 3){
                     handAnimator.Add(item);
                     handWeapons.Add(item.gameObject);
 
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
-                    terciaryGun = weasponStats;
+                    if(weasponStats.gunIndex == 0)
+                        terciaryGun = weasponStats;
                     //else if(weasponStats.gunIndex == 1)
                     //    secondaryGun = weasponStats;
                     //else if(weasponStats.gunIndex == 2)
@@ -203,7 +206,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             lifeText.text = health.ToString();
             headPosition.Invisible();
-            ghostPosition.Invisible();
+
+            /*
+            for (int i = 0; i < ghostPosition.Length; i++)
+            {
+                ghostPosition[i].Invisible();
+            }
+            */
         }
         else
 		{
@@ -215,29 +224,28 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             Destroy(canvas);
 		}
         //GameManager.updateRequest.Add(true);
+
+        ChangeGhostGun();
     }
 
     // Update is called once per frame
     void Update()
     {   
-        
         if(!PV.IsMine)
 			return;
-
         if(waitingForSpawn)
             return;
 
-
-        Debug.Log(gunIndex);
-
         if(nearDroppedWeapon != null){
-            float distance = Vector3.Distance(this.transform.position, nearDroppedWeapon.transform.position);
+            
+            float distance = Vector3.Distance(this.transform.position, nearTransformDroppedWeapon.position);
             if(distance < 1.4){
                 if((primaryGun != null && nearDroppedWeapon.currentGunIndex == primaryGun.gunIndex)||(secondaryGun != null && nearDroppedWeapon.currentGunIndex == secondaryGun.gunIndex)){
                     if(nearDroppedWeapon.currentGunIndex == primaryGun.gunIndex){
                         if(primaryGun.totalAmmo < primaryGun.maxAmmo){
                             primaryGun.totalAmmo = primaryGun.totalAmmo + primaryGun.maxAmmo/2 > primaryGun.maxAmmo ? primaryGun.maxAmmo : primaryGun.totalAmmo + primaryGun.maxAmmo/2;
-                            //ChangeGuns(primaryGun);
+                            if(gunIndex == primaryGun.gunIndex)
+                                UpdateAmmo(primaryGun);
                             PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.gameObject.GetInstanceID());
                             playerSound.PlaySound(3,0.4f,1);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
@@ -245,7 +253,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     } else {
                         if(secondaryGun.totalAmmo < secondaryGun.maxAmmo){
                             secondaryGun.totalAmmo = secondaryGun.totalAmmo + secondaryGun.maxAmmo/2 > secondaryGun.maxAmmo ? secondaryGun.maxAmmo : secondaryGun.totalAmmo + secondaryGun.maxAmmo/2;
-                            //ChangeGuns(secondaryGun);
+                            if(gunIndex == secondaryGun.gunIndex)
+                                UpdateAmmo(secondaryGun);
                             PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.gameObject.GetInstanceID());
                             playerSound.PlaySound(3,0.4f,1);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
@@ -253,7 +262,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     }
                 } else {
                     changeWeaponText.text = "Pressione E para pegar " + nearDroppedWeapon.name.ToString();
-                    if(Input.GetKeyDown(KeyCode.E)){
+                    if(Input.GetKeyDown(KeyCode.E) && CurrentAnimation() != "Select"){
                         if(primaryGun == null){
                             primaryGun = nearDroppedWeapon.ChangeWeapons(primaryGun);
                             actualWeapon = 1;
@@ -364,6 +373,32 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
     }
 
+    void ChangeGhostGun()
+    {   
+
+        for (int i = 0; i < ghostPosition.Length; i++)
+        {   
+            if(ghostPosition[i].gunIndex == gunIndex && !PV.IsMine){
+                ghostPosition[i].Visible();
+            }else
+                ghostPosition[i].Invisible();
+        }/*
+        if(PV.IsMine){
+            for (int i = 0; i < ghostPosition.Length; i++)
+            {
+                ghostPosition[i].Invisible();
+            }
+        } else {
+            for (int i = 0; i < ghostPosition.Length; i++)
+            {
+                if(ghostPosition[i].gunIndex == gunIndex)
+                    ghostPosition[i].Visible();
+                else
+                    ghostPosition[i].Invisible();
+            }
+        }*/
+    }
+
     [PunRPC]
     void OnAnimationChange(string anim)
     {
@@ -419,18 +454,27 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else
                 handWeapons[i].SetActive(false);
         }
-        maxAmmo = weapon.maxAmmo;
-        currentAmmo = weapon.currentAmmo;
-        totalAmmo = weapon.totalAmmo;
-        clipSize = weapon.clipSize;
+        UpdateAmmo(weapon);
         damage = weapon.damage;
         fireRate = weapon.fireRate;
         range = weapon.range;
         reloadingTime = weapon.reloadingTime;
+        ChangeGhostGun();
+    }
+
+    void UpdateAmmo(WeaponStats weapon)
+    {
+        maxAmmo = weapon.maxAmmo;
+        currentAmmo = weapon.currentAmmo;
+        totalAmmo = weapon.totalAmmo;
+        clipSize = weapon.clipSize;
     }
 
     void CheckSpeed()
     {   
+        if(!isGrounded)
+            return;
+
         if(isCrounching){
             playerSound.step_Distance = crouch_Step_Distance;
             playerSound.volume_Min = crouch_Volume;
@@ -463,7 +507,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             //aimPoint.alpha = 0f;
 
         if(Input.GetKeyDown(KeyCode.R)){
-            if(noGuns || CurrentAnimation() == "Reload" || actualWeapon == 3)
+            if(noGuns || CurrentAnimation() == "Reload" || CurrentAnimation() == "Select" || actualWeapon == 3)
                 return;
             if(totalAmmo > 0){
                 if(clipSize != currentAmmo && isReloading == false){
@@ -538,11 +582,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     string CurrentAnimation()
     {   
-        AnimatorClipInfo[] m_CurrentClipInfo = handAnimator[gunIndex].GetCurrentAnimatorClipInfo(0);
-        if(m_CurrentClipInfo.Length >0)
-            return m_CurrentClipInfo[0].clip.name;
-        else
-            return ""; 
+        if(handAnimator != null && handAnimator.Count > 0){
+            AnimatorClipInfo[] m_CurrentClipInfo = handAnimator[gunIndex].GetCurrentAnimatorClipInfo(0);
+            if(m_CurrentClipInfo != null && m_CurrentClipInfo.Length >0)
+                return m_CurrentClipInfo[0].clip.name;
+        }
+        
+        return "Nothing"; 
     }
     /*
     void MeleeAttack()
@@ -588,7 +634,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = 6;
+        instanceData[1] = gunIndex+6;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
@@ -739,6 +785,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         float z = Random.Range((target.heaven.transform.position.z - 5f), target.heaven.transform.position.z + 5f);
         target.transform.position = new Vector3(x,target.heaven.transform.position.y + 4f,z);
         yield return new WaitForSeconds(0.3f);
+        target.bulletsText.text = "";
         target.primaryGun = null;
         target.secondaryGun = null;
         target.health = 100;
@@ -754,11 +801,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         if(this.health <=0)
             return;
+
+        Debug.Log(other.tag);
         
-        Debug.Log(other.name);
         if(other.tag == "DroppedWeapon")
         {   
             nearDroppedWeapon = other.gameObject.GetComponentInParent<ChangeDroppedGun>();
+            nearTransformDroppedWeapon = other.gameObject.transform;
+
+        } else if(other.tag == "DropGameObject")
+        {
+            nearDroppedWeapon = other.gameObject.GetComponent<ChangeDroppedGun>();
+            nearTransformDroppedWeapon = other.gameObject.transform;
         }
     }
 
