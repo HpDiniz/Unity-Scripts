@@ -23,6 +23,7 @@ public class PlayerSounds : MonoBehaviour
     public float step_Distance;
 
     int lastRandom;
+    bool inWater = false;
 
     void Awake()
     {
@@ -45,6 +46,22 @@ public class PlayerSounds : MonoBehaviour
         audioController.Play();*/
     }
 
+    void OnTriggerStay(Collider other) 
+    {
+        if(other.tag == "Water")
+        {
+            inWater = true;
+        }
+    }
+
+    void OnTriggerExit(Collider other) 
+    {
+        if(other.tag == "Water")
+        {
+            inWater = false;
+        }
+    }
+
     void CheckFootstepSound(){
         if(!characterController.isGrounded)
             return;
@@ -56,11 +73,17 @@ public class PlayerSounds : MonoBehaviour
             if(accumulated_Distance > step_Distance)
             {
                 float volume = Random.Range(volume_Min, volume_Max);
+                int startIndex = 0;
 
-                int newRandom = Random.Range(0, footStepLenght);
+                if(inWater){
+                    volume = volume/30;
+                    startIndex = 4;
+                }
+
+                int newRandom = Random.Range(startIndex, startIndex+footStepLenght);
 
                 while(newRandom == lastRandom)
-                    newRandom = Random.Range(0, footStepLenght);
+                    newRandom = Random.Range(startIndex, startIndex+footStepLenght);
                 
                 PlaySound(newRandom,volume,0);
                 

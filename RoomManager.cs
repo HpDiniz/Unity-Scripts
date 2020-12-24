@@ -44,7 +44,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			ChangeDroppedGun[] guns = GetComponents<ChangeDroppedGun>();
 
 			if(guns.Length == 0){
-				InstantiateGuns(400);
+				InstantiateGuns(500);
 			}
 
 			PhotonNetwork.Instantiate(Path.Combine("PhotonPrefabs", "PlayerManager"), Vector3.zero, Quaternion.identity);
