@@ -236,10 +236,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			return;
         if(waitingForSpawn)
             return;
-        
-        Debug.Log("LAST DAMAGE USER: " + lastDamageUser);
-        Debug.Log("KILL STREAK:" + this.killStreak);
-        Debug.Log("MORTES: " + this.deathCounter);
 
         if(this.health < 1){
             this.health = 0;
@@ -248,9 +244,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             object[] additionalData = new object[2];
             additionalData[0] = this.PV.InstantiationId;
-            additionalData[1] = lastDamageUser;
             
-            PV.RPC("UpdateKills",RpcTarget.All,additionalData);
+            PV.RPC("UpdateDeaths",RpcTarget.All,additionalData);
 
             additionalData[0] = 0;
             additionalData[1] = true;
@@ -405,21 +400,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 ghostPosition[i].Visible();
             }else
                 ghostPosition[i].Invisible();
-        }/*
-        if(PV.IsMine){
-            for (int i = 0; i < ghostPosition.Length; i++)
-            {
-                ghostPosition[i].Invisible();
-            }
-        } else {
-            for (int i = 0; i < ghostPosition.Length; i++)
-            {
-                if(ghostPosition[i].gunIndex == gunIndex)
-                    ghostPosition[i].Visible();
-                else
-                    ghostPosition[i].Invisible();
-            }
-        }*/
+        }
     }
 
     [PunRPC]
@@ -469,8 +450,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }
             
         }
-
-        //
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -711,7 +690,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 
         Vector3 targetPosition;
-        //Debug.Log(CurrentAnimation());
         if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire")
             targetPosition = fpsCam.transform.forward;
         else{
@@ -735,17 +713,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
-                    if(target.health > 0){
-                        if(hit.transform.tag == "PlayerHead")
-                            hitMarker.HeadshotHit();
-                        else
-                            hitMarker.BodyHit();
-                    }
+                    Debug.Log(target.health);
+                    if(hit.transform.tag == "PlayerHead")
+                        hitMarker.HeadshotHit();
+                    else
+                        hitMarker.BodyHit();
                     
                     instanceData[1] = target.PV.InstantiationId;
                     instanceData[2] = amount;
                     PV.RPC("TakeDamage",RpcTarget.All,instanceData);
-                    CheckKillStreak();
+                    //CheckKillStreak();
                 }
             } else {
                 PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
@@ -759,6 +736,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator Respawn() 
     {   
+        object[] instanceData = new object[2];
+        instanceData[0] = gunIndex;
         yield return new WaitForSeconds(0.1f);
         this.killStreak = 0;
         this.lastDamageUser = -1;
@@ -772,20 +751,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         ChangeGuns(this.terciaryGun);
         this.actualWeapon = 1;
         this.enabled = false;
-        this.health = 100;
         yield return new WaitForSeconds(0.1f);
-        object[] instanceData = new object[1];
-        instanceData[0] = gunIndex;
-        PhotonNetwork.Instantiate("DroppedGun",this.transform.position, Quaternion.identity,0,instanceData);
+        if((int)instanceData[0] != terciaryGun.gunIndex)
+            PhotonNetwork.Instantiate("DroppedGun",this.transform.position, Quaternion.identity,0,instanceData);
         float x = Random.Range((this.heaven.transform.position.x - 5f), (this.heaven.transform.position.x + 5f));
         float z = Random.Range((this.heaven.transform.position.z - 5f), this.heaven.transform.position.z + 5f);
         this.transform.position = new Vector3(x,this.heaven.transform.position.y + 4f,z);
         yield return new WaitForSeconds(0.4f);
         this.primaryGun = null;
         this.secondaryGun = null;
-        this.health = 100;
+        this.health = 200;
         this.enabled = true;
         this.waitingForSpawn = false;
+
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.health;
+        PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
         
     }
 
@@ -831,7 +812,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
 
     [PunRPC]
-    public void DestroyObject(int instanceID) //, PlayerMovement playerWhoShooted
+    public void DestroyObject(int instanceID)
     {   
         GameObject [] objects = GameObject.FindGameObjectsWithTag("DropGameObject");
         foreach (GameObject go in objects)
@@ -845,7 +826,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
     
     [PunRPC]
-    public void TakeDamage(object[] instantiationData) //, PlayerMovement playerWhoShooted
+    public void TakeDamage(object[] instantiationData)
     {   
         PlayerMovement whoReceivedDamage = null;
         PlayerMovement whoCausedDamage = null;
@@ -862,16 +843,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
         if(whoReceivedDamage)
         {   
-            //Debug.Log(whoReceivedDamage.PV.InstantiationId.ToString() + " " + PV.InstantiationId.ToString());
             if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
                 whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
-            //whoReceivedDamage.StopCoroutine(RestoreLife());
+
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
             if(whoReceivedDamage.health <= 0){
             
                 whoReceivedDamage.health = 0;
-                Debug.Log("DAMAGE: " + whoReceivedDamage.PV.InstantiationId + " - " + whoCausedDamage.PV.InstantiationId);
+
                 whoReceivedDamage.lastDamageUser = whoCausedDamage.PV.InstantiationId;
 
             }   
@@ -896,7 +876,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
 
     [PunRPC]
-    public void UpdateKills(object[] instantiationData)
+    public void UpdateDeaths(object[] instantiationData)
     {   
         PlayerMovement[] players = GetComponents<PlayerMovement>();
 
@@ -904,14 +884,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             if(players[i].PV.InstantiationId == (int)instantiationData[0]){
                 players[i].deathCounter++;
-            } 
-            if((int)instantiationData[0] == (int)instantiationData[1])
                 break;
-            if(players[i].PV.InstantiationId == (int)instantiationData[1]){
-                Debug.Log(players[i].name);
-                players[i].killCounter ++;
-                players[i].killStreak ++;
-            }
+            } 
+        }
+    }
+
+    [PunRPC]
+    public void UpdateLife(object[] instantiationData)
+    {   
+        PlayerMovement[] players = GetComponents<PlayerMovement>();
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            if(players[i].PV.InstantiationId == (int)instantiationData[0]){
+                players[i].health = (int)instantiationData[1];
+                break;
+            } 
         }
     }
 
@@ -940,20 +928,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             instanceData[0] = 1;
             instanceData[1] = false;
             PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
-        }else{
-            /*
-            object[] instanceData = new object[2];
-            instanceData[0] = 2;
-            instanceData[1] = true;
-            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
-            */
         }
-        /*
-        else if(this.killStreak == 5){
-            StartCoroutine(exibeKillStreak(this,"5"));
-        PV.RPC("playGireiSound",RpcTarget.All);
-        }*/
-        
     }
 
     [PunRPC]
