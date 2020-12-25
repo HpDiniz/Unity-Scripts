@@ -254,6 +254,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             return;
         }
 
+        if(gunIndex == 0)
+            bulletsText.text = "";
+
         if(nearDroppedWeapon != null){
             
             float distance = Vector3.Distance(this.transform.position, nearTransformDroppedWeapon.position);
@@ -264,7 +267,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                             primaryGun.totalAmmo = primaryGun.totalAmmo + primaryGun.maxAmmo/2 > primaryGun.maxAmmo ? primaryGun.maxAmmo : primaryGun.totalAmmo + primaryGun.maxAmmo/2;
                             if(gunIndex == primaryGun.gunIndex)
                                 UpdateAmmo(primaryGun);
-                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.gameObject.GetInstanceID());
+                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
                             playerSound.PlaySound(3,0.4f,1);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
                         }
@@ -273,7 +276,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                             secondaryGun.totalAmmo = secondaryGun.totalAmmo + secondaryGun.maxAmmo/2 > secondaryGun.maxAmmo ? secondaryGun.maxAmmo : secondaryGun.totalAmmo + secondaryGun.maxAmmo/2;
                             if(gunIndex == secondaryGun.gunIndex)
                                 UpdateAmmo(secondaryGun);
-                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.gameObject.GetInstanceID());
+                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
                             playerSound.PlaySound(3,0.4f,1);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
                         }
@@ -282,20 +285,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     changeWeaponText.text = "Pressione E para pegar " + nearDroppedWeapon.name.ToString();
                     if(Input.GetKeyDown(KeyCode.E) && CurrentAnimation() != "Select"){
                         if(primaryGun == null){
-                            primaryGun = nearDroppedWeapon.ChangeWeapons(primaryGun);
+                            primaryGun = nearDroppedWeapon.ChangeWeapons(0);
+                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
                             actualWeapon = 1;
                             ChangeGuns(primaryGun);
                         }else if(secondaryGun == null){
-                            secondaryGun = nearDroppedWeapon.ChangeWeapons(secondaryGun);
+                            secondaryGun = nearDroppedWeapon.ChangeWeapons(0);
+                            PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
                             actualWeapon = 2;
                             ChangeGuns(secondaryGun);
                         } else {
                             if(actualWeapon == 1 || actualWeapon == 3){
-                                primaryGun = nearDroppedWeapon.ChangeWeapons(primaryGun);
+                                primaryGun = nearDroppedWeapon.ChangeWeapons(primaryGun.gunIndex);
                                 actualWeapon = 1;
                                 ChangeGuns(primaryGun);
                             } else {
-                                secondaryGun = nearDroppedWeapon.ChangeWeapons(secondaryGun);
+                                secondaryGun = nearDroppedWeapon.ChangeWeapons(secondaryGun.gunIndex);
                                 actualWeapon = 2;
                                 ChangeGuns(secondaryGun);
                             }
@@ -779,12 +784,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             return;
 
         if(other.tag == "DroppedWeapon")
-        {   
+        {
+            //Physics.IgnoreCollision( other.gameObject.GetComponent<Collider>(), GetComponent<Collider>());
             nearDroppedWeapon = other.gameObject.GetComponentInParent<ChangeDroppedGun>();
             nearTransformDroppedWeapon = other.gameObject.transform;
 
         } else if(other.tag == "DropGameObject")
-        {
+        {   
+            //Physics.IgnoreCollision( other.gameObject.GetComponent<Collider>(), GetComponent<Collider>());
             nearDroppedWeapon = other.gameObject.GetComponent<ChangeDroppedGun>();
             nearTransformDroppedWeapon = other.gameObject.transform;
         }
@@ -814,11 +821,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [PunRPC]
     public void DestroyObject(int instanceID)
     {   
-        GameObject [] objects = GameObject.FindGameObjectsWithTag("DropGameObject");
-        foreach (GameObject go in objects)
-        {
-            if(go.GetInstanceID() == instanceID){
-                Destroy(go);
+        
+        GameObject [] allDroppedGuns = GameObject.FindGameObjectsWithTag("DropGameObject");
+
+        for (int i = 0; i < allDroppedGuns.Length; i++)
+        {   
+            ChangeDroppedGun dropped = allDroppedGuns[i].GetComponent<ChangeDroppedGun>();
+            if(dropped.PV.InstantiationId == instanceID){
+                Debug.Log("achou");
+                dropped.DisableGun();
                 break;
             }
         }

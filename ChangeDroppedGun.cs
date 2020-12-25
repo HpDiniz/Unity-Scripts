@@ -8,7 +8,7 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
     public WeaponStats [] weapons;
     public int currentGunIndex = 4;
     public WeaponStats currentWeapon;
-    //public List<WeaponStats> weapons = new List<WeaponStats>();
+    [HideInInspector] public PhotonView PV;
 
     public void OnPhotonInstantiate(PhotonMessageInfo info)
     {   
@@ -19,10 +19,14 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
         
     }
 
+    void Awake()
+	{   
+        weapons = GetComponentsInChildren<WeaponStats>();
+		PV = GetComponent<PhotonView>();
+	}
+
     void Start()
     {   
-        weapons = GetComponentsInChildren<WeaponStats>();
-
         for (int i = 0; i < weapons.Length; i++)
         {   
             if(weapons[i].gunIndex == currentGunIndex){
@@ -33,9 +37,15 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
                 weapons[i].gameObject.SetActive(false);
         }
     }
+
+    public void DisableGun()
+    {
+        this.gameObject.SetActive(false);
+    }
     
-    public WeaponStats ChangeWeapons(WeaponStats oldWeapon)
+    public WeaponStats ChangeWeapons(int oldGunIndex)
     {   
+        WeaponStats oldWeapon = null;
         WeaponStats newWeapon = currentWeapon;
 
         for (int i = 0; i < weapons.Length; i++)
@@ -45,10 +55,13 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
                 newWeapon.currentAmmo = weapons[i].currentAmmo;
                 weapons[i].gameObject.SetActive(false);
             }
+
+            if(weapons[i].gunIndex == oldGunIndex)
+                oldWeapon = weapons[i];
         }
 
-        if(oldWeapon == null){
-            this.gameObject.SetActive(false);
+        if(oldWeapon == null || oldGunIndex <= 0){
+            //DisableGun();
             return newWeapon;
         }
 
