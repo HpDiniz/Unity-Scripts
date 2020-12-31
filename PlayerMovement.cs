@@ -245,7 +245,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             object[] additionalData = new object[2];
             additionalData[0] = this.PV.InstantiationId;
             
-            PV.RPC("UpdateDeaths",RpcTarget.All,additionalData);
+            PV.RPC("UpdateDeaths",RpcTarget.AllBufferedViaServer,additionalData);
+            PV.RPC("CheckWinner",RpcTarget.AllBufferedViaServer);
 
             additionalData[0] = 0;
             additionalData[1] = true;
@@ -668,7 +669,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(!PV.IsMine)
 			return;
 
-        //damageIndicator.CreateIndicator(position);
+        damageIndicator.CreateIndicator(position);
     }
 
     void Shoot()
@@ -718,7 +719,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
-                    Debug.Log(target.health);
                     if(hit.transform.tag == "PlayerHead")
                         hitMarker.HeadshotHit();
                     else
@@ -783,6 +783,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(this.health <=0)
             return;
 
+        Debug.Log(other.name);
+
         if(other.tag == "DroppedWeapon")
         {
             //Physics.IgnoreCollision( other.gameObject.GetComponent<Collider>(), GetComponent<Collider>());
@@ -828,7 +830,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {   
             ChangeDroppedGun dropped = allDroppedGuns[i].GetComponent<ChangeDroppedGun>();
             if(dropped.PV.InstantiationId == instanceID){
-                Debug.Log("achou");
                 dropped.DisableGun();
                 break;
             }
@@ -884,6 +885,27 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             noGuns = false;
         } 
+    }
+
+    [PunRPC]
+    public void CheckWinner()
+    {   
+        PlayerMovement[] players = GetComponents<PlayerMovement>();
+
+        int stillAlive = 0;
+        string winnerName = "";
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            if(players[i].deathCounter == 0){
+                stillAlive++;
+                winnerName = players[i].Nickname;
+            }
+        }
+
+        if(stillAlive == 1){
+            Debug.Log(winnerName + " é o vencedor!");
+        }
     }
 
     [PunRPC]

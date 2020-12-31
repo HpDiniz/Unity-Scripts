@@ -85,7 +85,7 @@ public class DamageIndicator : MonoBehaviour
 
     IEnumerator RotateToTheTarget()
     {
-        while(enabled)
+        if(enabled)
         {
             if(Target)
             {

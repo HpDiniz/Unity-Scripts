@@ -41,10 +41,8 @@ public class RoomManager : MonoBehaviourPunCallbacks
 	{
 		if(scene.buildIndex == 1) // We're in the game scene
 		{
-			ChangeDroppedGun[] guns = GetComponents<ChangeDroppedGun>();
-
-			if(guns.Length == 0){
-				InstantiateGuns(500);
+			if(PhotonNetwork.IsMasterClient){
+				InstantiateGuns(70);
 			}
 
 			PhotonNetwork.Instantiate(Path.Combine("PhotonPrefabs", "PlayerManager"), Vector3.zero, Quaternion.identity);
@@ -108,7 +106,19 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			PhotonNetwork.Instantiate("DroppedGun", randomPosition, Quaternion.identity,0,instanceData);
 
 		} while ( i < amount);
-		
+
+		// INSTANCIA A BOMBA //
+		randomPositionX = Random.Range(terrainLeft, terrainRight);
+		randomPositionZ = Random.Range(terrainBottom, terrainTop);
+		if(Physics.Raycast(new Vector3(randomPositionX, 9999f, randomPositionZ), Vector3.down, out hit, Mathf.Infinity, terrain.layer)){
+			terrainHeight = hit.point.y;
+		}
+		randomPositionY = terrainHeight + 40f;
+
+		randomPosition = new Vector3(randomPositionX, randomPositionY, randomPositionZ);
+
+		PhotonNetwork.Instantiate("Bomb", randomPosition, Quaternion.identity,0,instanceData);
+
 	}
 
 }
