@@ -17,9 +17,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     private PlayerSounds playerSound;
 
-    private float sprint_Volume = 0.6f;
-    private float crouch_Volume = 0.1f;
-    private float walk_Volume_Min = 0.2f, walk_Volume_Max = 0.4f;
+    private float sprint_Volume = 0.15f;
+    private float crouch_Volume = 0.025f;
+    private float walk_Volume_Min = 0.03f, walk_Volume_Max = 0.045f;
 
     private float walk_Step_Distance = 0.42f;
     private float sprint_Step_Distance = 0.38f;
@@ -88,6 +88,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     Vector3 move;
     Transform heaven;
     HitMarker hitMarker;
+    GameObject sniperScope;
+    GameObject weaponCamera;
     DI_System damageIndicator;
     HeadPosition headPosition;
 
@@ -120,11 +122,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         GameManager.players.Add(this);
         ghostPosition = GetComponentsInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
-        fpsCam = GetComponentInChildren<Camera>();
 		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
         canvas = GetComponentInChildren<Canvas>();
         playerSound = GetComponent<PlayerSounds>();
+
+        Camera [] Cameras = GetComponentsInChildren<Camera>();
+            
+        foreach (Camera item in Cameras)
+        {
+            if(item.gameObject.name == "Main Camera"){
+                fpsCam = item;
+            }
+        }
 	}
 
 
@@ -165,15 +175,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
                     if(weasponStats.gunIndex == 0)
                         terciaryGun = weasponStats;
-                    //else if(weasponStats.gunIndex == 1)
-                    //    secondaryGun = weasponStats;
-                    //else if(weasponStats.gunIndex == 2)
-                    //    primaryGun = weasponStats;
                 }
             }
 
-            ChangeGuns(terciaryGun);
-            actualWeapon = 3;
+            Camera [] Cameras = GetComponentsInChildren<Camera>();
+            
+            foreach (Camera item in Cameras)
+            {
+                if(item.gameObject.name == "ScopeCamera"){
+                    weaponCamera = item.gameObject;
+                    Debug.Log("achou camera kkkk");
+                }
+            }
 
             if(canvas){
                 Text [] canvasItem = canvas.GetComponentsInChildren<Text>();
@@ -188,12 +201,26 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     else if(canvasItem[i].name == "GetWeapon")
                         changeWeaponText = canvasItem[i];
                 }
+
+                Image [] canvasImages = canvas.GetComponentsInChildren<Image>();
+
+                for(int i = 0; i< canvasImages.Length; i++){
+                    if(canvasImages[i].name == "SniperScope"){
+                        sniperScope = canvasImages[i].gameObject;
+                        sniperScope.SetActive(false);
+                    }
+                }
+
                 //aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
                 streakText = canvas.GetComponentInChildren<TMP_Text>();
                 damageIndicator = canvas.GetComponent<DI_System>();
                 //aimPoint.alpha = 1f;
             }
+
+            ChangeGuns(terciaryGun);
+            actualWeapon = 3;
+
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
             streakText.text =  "0 Kill Streak";
@@ -442,6 +469,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
     } 
 
+    //É AQUI QUE A TROCA DE ARMAS OCORRE
     void ChangeGuns(WeaponStats weapon)
     {   
         if(weapon == null)
@@ -451,11 +479,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             if(actualRoutine.ToString().Contains("Reload")){
                 this.handAnimator[gunIndex].SetInteger("Reload", 0);
-                this.StopCoroutine(actualRoutine);
-                isReloading = false;
+
+            } else if(actualRoutine.ToString().Contains("OnScoped")){
+                this.handAnimator[gunIndex].SetBool("Sight", false);
             }
-            
+
+            this.StopCoroutine(actualRoutine); 
         }
+
+        
+        isAiming = false;
+        isReloading = false;
+        sniperScope.SetActive(false);
+        weaponCamera.SetActive(true);
+        fpsCam.fieldOfView = 60f;
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -466,7 +503,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         for (int i = 0; i < handWeapons.Count; i++)
         {   
             if(i == gunIndex){
-                handWeapons[i].SetActive(true); 
+                handWeapons[i].SetActive(true);
+                /*
+                if(gunIndex == 4 || gunIndex == 5){
+                    handWeapons[i].transform.position = new Vector3(
+                        this.gameObject.transform.position.x,
+                        this.gameObject.transform.position.y -0.03500009f,
+                        this.gameObject.transform.position.z -0.3579998f
+                    );
+                }
+                */
             }else
                 handWeapons[i].SetActive(false);
         }
@@ -518,6 +564,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
     }
 
+    IEnumerator OnScoped(bool isAiming) 
+    {   
+        if(isAiming){
+            yield return new WaitForSeconds(.3f);
+            if(gunIndex == 5)
+                fpsCam.fieldOfView = 15f;
+            else if(gunIndex == 4)
+                fpsCam.fieldOfView = 40f;
+        } else {
+            fpsCam.fieldOfView = 60f;
+        }
+
+        sniperScope.SetActive(isAiming);
+        
+        weaponCamera.SetActive(!isAiming);
+
+    }
+
     void CheckHands()
     {   
         //if(CurrentAnimation() == "Idle" || CurrentAnimation() == "Move" || CurrentAnimation() == "Fire" || CurrentAnimation() == "Run")
@@ -544,8 +608,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(Input.GetButtonDown("Fire2")){
                 if(actualWeapon == 3)
                     return;
+
                 isAiming = !isAiming;
                 handAnimator[gunIndex].SetBool("Sight", isAiming);
+
+                if(gunIndex == 5 || gunIndex == 4){
+                    actualRoutine = OnScoped(isAiming);
+                    StartCoroutine(actualRoutine);
+                }
             }
             
         
@@ -611,6 +681,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         else
             handAnimator[gunIndex].SetInteger("Reload", 1);*/
         handAnimator[gunIndex].SetInteger("Reload", 1);
+
+        sniperScope.SetActive(false);
+        weaponCamera.SetActive(true);
+        fpsCam.fieldOfView = 60f;
             
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -696,7 +770,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 
         Vector3 targetPosition;
-        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire")
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire" || (isAiming && (gunIndex == 4 || gunIndex == 5)))
             targetPosition = fpsCam.transform.forward;
         else{
             float magnitude;
@@ -708,7 +782,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             int amount = 0;
 
             if(hit.transform.tag == "PlayerHead")
-                amount = (int)((damage - (hit.distance)/10) * 1.5);
+                amount = (int)((damage - (hit.distance)/10) * 2);
             else if(hit.transform.tag == "PlayerTorso")
                 amount = (int)((damage - (hit.distance)/10) * 1.25);
             else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
@@ -783,8 +857,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(this.health <=0)
             return;
 
-        Debug.Log(other.name);
-
         if(other.tag == "DroppedWeapon")
         {
             //Physics.IgnoreCollision( other.gameObject.GetComponent<Collider>(), GetComponent<Collider>());
@@ -807,12 +879,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(this.health <=0)
             return;
 
-        if(other.tag == "Respawn")
+        if(other.tag == "Bomb")
+        {  
+
+        } else if(other.tag == "Respawn")
         {  
             object[] instanceData = new object[3];
             instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
-            instanceData[2] = 100;
+            instanceData[2] = 200;
             PV.RPC("TakeDamage",RpcTarget.All,instanceData);
         } else if(other.tag == "NoGuns")
         {

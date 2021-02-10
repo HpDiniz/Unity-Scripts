@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class WeaponStats : MonoBehaviour
-{   
-    
+{  
     public int totalAmmo;
     public int clipSize;
     public int damage;

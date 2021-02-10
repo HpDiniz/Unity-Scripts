@@ -42,7 +42,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 		if(scene.buildIndex == 1) // We're in the game scene
 		{
 			if(PhotonNetwork.IsMasterClient){
-				InstantiateGuns(70);
+				InstantiateGuns(550);
 			}
 
 			PhotonNetwork.Instantiate(Path.Combine("PhotonPrefabs", "PlayerManager"), Vector3.zero, Quaternion.identity);
@@ -82,6 +82,12 @@ public class RoomManager : MonoBehaviourPunCallbacks
 
 			float percent = Random.Range(0.0f, 1.0f);
 
+			if(percent <= 0.5f)
+				instanceData[0] = 5;
+			else{
+				instanceData[0] = 4;
+			}
+
 			/*
 			50% de pistola
 			25% de submachinegun
@@ -90,7 +96,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			5% de sniper
 			0% de shotgun
 			*/
-
+			/*
 			if(percent <= 0.5f){
 				instanceData[0] = 1;
 			} else if(percent <= 0.75f){
@@ -102,7 +108,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			}else{
 				instanceData[0] = 5;
 			}
-
+			*/
 			PhotonNetwork.Instantiate("DroppedGun", randomPosition, Quaternion.identity,0,instanceData);
 
 		} while ( i < amount);
