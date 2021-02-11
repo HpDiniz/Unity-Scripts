@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Photon.Pun;
 
-public class PlayerSounds : MonoBehaviour
+public class PlayerSounds : MonoBehaviourPunCallbacks
 {
     [SerializeField]
     private AudioSource [] audioController;
@@ -12,10 +13,9 @@ public class PlayerSounds : MonoBehaviour
 
     public int footStepLenght = 3;
 
-    private PlayerMovement characterController;
+    public int walkingStatus = 0;
 
-    [HideInInspector]
-    public float volume_Min, volume_Max;
+    private PlayerMovement characterController;
 
     private float accumulated_Distance;
 
@@ -41,9 +41,6 @@ public class PlayerSounds : MonoBehaviour
     {
         CheckFootstepSound();
 
-        /*audioController.volume = 1f;
-        audioController.clip = soundClips[3];
-        audioController.Play();*/
     }
 
     void OnTriggerStay(Collider other) 
@@ -72,12 +69,10 @@ public class PlayerSounds : MonoBehaviour
 
             if(accumulated_Distance > step_Distance)
             {
-                float volume = Random.Range(volume_Min, volume_Max);
-                int startIndex = 0;
+                int startIndex = (16 + (walkingStatus * 3));
 
                 if(inWater){
-                    volume = volume/30;
-                    startIndex = 4;
+                    startIndex = 13;
                 }
 
                 int newRandom = Random.Range(startIndex, startIndex+footStepLenght);
@@ -85,7 +80,7 @@ public class PlayerSounds : MonoBehaviour
                 while(newRandom == lastRandom)
                     newRandom = Random.Range(startIndex, startIndex+footStepLenght);
                 
-                PlaySound(newRandom,volume,0);
+                PlaySound(newRandom);
                 
                 lastRandom = newRandom;
 
@@ -96,10 +91,21 @@ public class PlayerSounds : MonoBehaviour
         }
     }
 
-    public void PlaySound(int index,float volume, int audioIndex)
+    public void PlayOfflineSound(int index,float volume, int audioIndex)
     {   
         audioController[audioIndex].volume = volume;
         audioController[audioIndex].clip = soundClips[index];
         audioController[audioIndex].Play();
+    }
+
+    public void PlaySound(int audioIndex)
+    {   
+
+        object[] instanceData = new object[3];
+        instanceData[0] = characterController.PV.InstantiationId;
+        instanceData[1] = audioIndex;
+
+        PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
+
     }
 }

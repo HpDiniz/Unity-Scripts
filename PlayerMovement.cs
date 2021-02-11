@@ -17,10 +17,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     private PlayerSounds playerSound;
 
-    private float sprint_Volume = 0.15f;
-    private float crouch_Volume = 0.025f;
-    private float walk_Volume_Min = 0.03f, walk_Volume_Max = 0.045f;
-
     private float walk_Step_Distance = 0.42f;
     private float sprint_Step_Distance = 0.38f;
     private float crouch_Step_Distance = 0.54f;
@@ -141,8 +137,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     void Start()
     {   
         walkMagnitude = 0f;
-        playerSound.volume_Min = walk_Volume_Min;
-        playerSound.volume_Max = walk_Volume_Max;
         playerSound.step_Distance = walk_Step_Distance;
 
         AudioSource auxAudio = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
@@ -296,7 +290,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                             if(gunIndex == primaryGun.gunIndex)
                                 UpdateAmmo(primaryGun);
                             PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
-                            playerSound.PlaySound(3,0.4f,1);
+                            playerSound.PlayOfflineSound(0,0.4f,0);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
                         }
                     } else {
@@ -305,7 +299,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                             if(gunIndex == secondaryGun.gunIndex)
                                 UpdateAmmo(secondaryGun);
                             PV.RPC("DestroyObject",RpcTarget.All,nearDroppedWeapon.PV.InstantiationId);
-                            playerSound.PlaySound(3,0.4f,1);
+                            playerSound.PlayOfflineSound(0,0.4f,0);
                             bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
                         }
                     }
@@ -487,7 +481,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             this.StopCoroutine(actualRoutine); 
         }
 
-        
         isAiming = false;
         isReloading = false;
         sniperScope.SetActive(false);
@@ -507,9 +500,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 /*
                 if(gunIndex == 4 || gunIndex == 5){
                     handWeapons[i].transform.position = new Vector3(
-                        this.gameObject.transform.position.x,
-                        this.gameObject.transform.position.y -0.03500009f,
-                        this.gameObject.transform.position.z -0.3579998f
+                        this.weaponCamera.gameObject.transform.position.x,
+                        this.weaponCamera.gameObject.transform.position.y -0.03500009f,
+                        this.weaponCamera.gameObject.transform.position.z -0.3579998f
                     );
                 }
                 */
@@ -540,28 +533,43 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(isCrounching){
             
             playerSound.step_Distance = crouch_Step_Distance;
-            playerSound.volume_Min = crouch_Volume;
-            playerSound.volume_Max = crouch_Volume;
+            playerSound.walkingStatus = 2;
+
             this.speed = actualWeapon == 3 ? 4f : 3.5f;
         }else if(isAiming){
             
             playerSound.step_Distance = crouch_Step_Distance;
-            playerSound.volume_Min = crouch_Volume;
-            playerSound.volume_Max = crouch_Volume;
-            this.speed = 4f;
+            playerSound.walkingStatus = 2;
+
+            this.speed = actualWeapon == 3 ? 4f : 3.5f;
         }else if(CurrentAnimation() == "Run"){
             
             playerSound.step_Distance = sprint_Step_Distance;
-            playerSound.volume_Min = sprint_Volume;
-            playerSound.volume_Max = sprint_Volume;
+            playerSound.walkingStatus = 1;
+
             this.speed = actualWeapon == 3 ? 10f : 8f;
         }else{
             
             playerSound.step_Distance = walk_Step_Distance;
-            playerSound.volume_Min = walk_Volume_Min;
-            playerSound.volume_Max = walk_Volume_Max;
+            playerSound.walkingStatus = 0;
+
             this.speed = actualWeapon == 3 ? 6f : 5f;
         }
+    }
+
+    IEnumerator RemoveScope() 
+    {   
+        yield return new WaitForSeconds(.15f);
+
+        isAiming = false;
+        fpsCam.fieldOfView = 60f;
+        sniperScope.SetActive(isAiming);
+        weaponCamera.SetActive(!isAiming);
+
+        yield return new WaitForSeconds(.1f);
+        
+        handAnimator[gunIndex].SetBool("Sight", false);
+
     }
 
     IEnumerator OnScoped(bool isAiming) 
@@ -605,14 +613,29 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(isReloading || CurrentAnimation() == "Reload")
                 return;
 
+            if(gunIndex == 5){
+                if(CurrentAnimation() == "Fire")
+                    return;
+            }
+
             if(Input.GetButtonDown("Fire2")){
                 if(actualWeapon == 3)
                     return;
 
                 isAiming = !isAiming;
                 handAnimator[gunIndex].SetBool("Sight", isAiming);
+                /*
+                if(gunIndex == 5){
+                    if(Time.time <= nextTimeToFire){
+                        return;
+                    }
 
-                if(gunIndex == 5 || gunIndex == 4){
+                    actualRoutine = OnScoped(isAiming);
+                    StartCoroutine(actualRoutine);
+                }
+                */
+
+                if(gunIndex == 4 || gunIndex == 5){
                     actualRoutine = OnScoped(isAiming);
                     StartCoroutine(actualRoutine);
                 }
@@ -628,12 +651,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         return;
                     if(Time.time >= nextTimeToFire){
                         nextTimeToFire = Time.time + fireRate;
-                        handAnimator[gunIndex].SetInteger("Fire", 1);
+
+                        /*if(gunIndex == 5){
+                            handAnimator[gunIndex].SetBool("Sight", false);
+                        }*/
+                        if(gunIndex != 5)
+                            handAnimator[gunIndex].SetInteger("Fire", 1);
+                        else 
+                            handAnimator[gunIndex].SetTrigger("Fire");
                         Shoot();
                         return;
                     }
                 }else{
-                    handAnimator[gunIndex].SetInteger("Fire", 0);
+                    if(gunIndex != 5)
+                        handAnimator[gunIndex].SetInteger("Fire", 0);
                     if(totalAmmo > 0){
                         if(clipSize != currentAmmo){
                             isReloading = true;
@@ -644,7 +675,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }  
 
             }else{
-                handAnimator[gunIndex].SetInteger("Fire", 0);
+                if(gunIndex != 5)
+                    handAnimator[gunIndex].SetInteger("Fire", 0);
                 
                 if(isAiming || isCrounching || CurrentAnimation() == "ZoomFire" || CurrentAnimation() == "Fire"){
                     return;
@@ -768,7 +800,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         RaycastHit hit;
 
-
         Vector3 targetPosition;
         if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire" || (isAiming && (gunIndex == 4 || gunIndex == 5)))
             targetPosition = fpsCam.transform.forward;
@@ -782,14 +813,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             int amount = 0;
 
             if(hit.transform.tag == "PlayerHead")
-                amount = (int)((damage - (hit.distance)/10) * 2);
+                amount = gunIndex == 5 ? (int)(damage * 2) : (int)((damage - (hit.distance)/10) * 2);
             else if(hit.transform.tag == "PlayerTorso")
-                amount = (int)((damage - (hit.distance)/10) * 1.25);
+                amount = gunIndex == 5 ? (int)(damage * 1.25) : (int)((damage - (hit.distance)/10) * 1.25);
             else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
-                amount = (int)((damage - (hit.distance)/10));
+                amount = gunIndex == 5 ? (int)(damage) : (int)((damage - (hit.distance)/10));
             else if(hit.transform.tag == "Enemy")
                 hitMarker.BodyHit();
-
+        
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
@@ -809,6 +840,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
 
         shootingAnim = false;
+
+        if(gunIndex == 5){
+            StartCoroutine(RemoveScope());
+        }
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
