@@ -42,7 +42,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 		if(scene.buildIndex == 1) // We're in the game scene
 		{
 			if(PhotonNetwork.IsMasterClient){
-				InstantiateGuns(550);
+				InstantiateGuns(250);
 			}
 
 			PhotonNetwork.Instantiate(Path.Combine("PhotonPrefabs", "PlayerManager"), Vector3.zero, Quaternion.identity);
@@ -82,10 +82,13 @@ public class RoomManager : MonoBehaviourPunCallbacks
 
 			float percent = Random.Range(0.0f, 1.0f);
 
-			if(percent <= 0.5f)
+			
+			if(percent <= 0.33f)
 				instanceData[0] = 5;
-			else{
+			else if(percent <= 0.66f){
 				instanceData[0] = 4;
+			} else {
+				instanceData[0] = 3;
 			}
 
 			/*
