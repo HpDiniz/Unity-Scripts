@@ -102,7 +102,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public Text lifeText;
     [HideInInspector] public Text sensibilidadeText;
     [HideInInspector] public Text changeWeaponText;
-    [HideInInspector] public TMP_Text streakText;
+    [HideInInspector] public TMP_Text messageText;
+    [HideInInspector] public TMP_Text rankingText;
 
     [HideInInspector] public string Nickname;
 
@@ -195,6 +196,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         sensibilidadeText = canvasItem[i];
                     else if(canvasItem[i].name == "GetWeapon")
                         changeWeaponText = canvasItem[i];
+                    else if(canvasItem[i].name == "Ranking")
+                        changeWeaponText = canvasItem[i];
+                }
+
+                TMP_Text [] canvasTMP = canvas.GetComponentsInChildren<TMP_Text>();
+
+                for(int i = 0; i< canvasTMP.Length; i++){
+                    if(canvasTMP[i].name == "Message")
+                        messageText = canvasTMP[i];
+                    else if(canvasTMP[i].name == "Ranking")
+                        rankingText = canvasTMP[i];
                 }
 
                 Image [] canvasImages = canvas.GetComponentsInChildren<Image>();
@@ -208,7 +220,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
                 //aimPoint = canvas.GetComponentInChildren<CanvasGroup>();
                 hitMarker = canvas.GetComponentInChildren<HitMarker>();
-                streakText = canvas.GetComponentInChildren<TMP_Text>();
                 damageIndicator = canvas.GetComponent<DI_System>();
                 //aimPoint.alpha = 1f;
             }
@@ -219,8 +230,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
-            streakText.text =  "0 Kill Streak";
-            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
+            messageText.text =  "0 Kill Streak";
+            messageText.color = new Color(messageText.color.r, messageText.color.g, messageText.color.b, 0f);
             waitingForSpawn = false;
             isAiming = false;
             currentAmmo = clipSize;
@@ -228,6 +239,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bulletsText.text = "";
             else
                 bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
+
+            rankingText.text = this.Nickname + " " + this.killCounter.ToString() + "/" + this.deathCounter.ToString();
             lifeText.text = health.ToString();
             headPosition.Invisible();
 
@@ -266,11 +279,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             this.waitingForSpawn = true;
 
             object[] additionalData = new object[2];
+            /*
             additionalData[0] = this.PV.InstantiationId;
-            
             PV.RPC("UpdateDeaths",RpcTarget.AllBufferedViaServer,additionalData);
             PV.RPC("CheckWinner",RpcTarget.AllBufferedViaServer);
-
+            */
             additionalData[0] = 0;
             additionalData[1] = true;
             PV.RPC("playGeneralSound",RpcTarget.All,additionalData);
@@ -846,17 +859,110 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
+
+    [PunRPC]
+    public void UpdateRanking(object[] instantiationData) 
+    {   
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+
+        int firstDeaths = this.deathCounter;
+        int firstKills = this.killCounter;
+        string firstNick = this.Nickname;
+
+        string texto = "";
+
+
+        Debug.Log(instantiationData[1]);
+        Debug.Log((int)instantiationData[2]);
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            Debug.Log(players[i].Nickname + " " + players[i].killCounter.ToString() + "/" + players[i].deathCounter.ToString());
+            
+            if(players[i].PV.InstantiationId == (int)instantiationData[0]){
+                players[i].killCounter = (int)instantiationData[1];
+                players[i].deathCounter = (int)instantiationData[2];
+            }
+
+        }
+
+        PlayerMovement [] playersOrder = players;
+
+        for (int j=1; j<playersOrder.Length; j++) {
+            for (int i=j; i>0 && playersOrder[i].deathCounter > playersOrder[i-1].deathCounter; i--) {
+                PlayerMovement temporary;
+                temporary = playersOrder [i];
+                playersOrder [i] = playersOrder [i - 1];
+                playersOrder [i - 1] = temporary;
+            }
+        }
+
+        for (int i = 0; i < playersOrder.Length; i++)
+        {
+            texto = texto + players[i].Nickname + " " + players[i].killCounter + "/" + players[i].deathCounter + "\n";
+        }
+        
+        if(rankingText)
+            rankingText.text = texto; //firstNick + " " + firstKills.ToString() + "/" + firstDeaths.ToString();
+    }
+
+    [PunRPC]
+    public void UpdateKD(object[] instantiationData)
+    {   
+
+        //object[] instanceData = new object[3];
+     
+        if(this.PV.InstantiationId == (int)instantiationData[0]){
+
+            this.deathCounter++;
+            this.killStreak = 0;
+            
+        }
+
+        
+        /*
+
+        Debug.Log("whoDies: " + playerWhoDies + " / whoKills: " + playerWhoKills + " / eu: " + this.PV.InstantiationId);
+        if(playerWhoDies != playerWhoKills){
+            if(this.PV.InstantiationId == playerWhoKills){
+
+                Debug.Log(this.PV.InstantiationId + " eu q matei o palhaço do " + playerWhoKills);
+
+                this.killCounter++;
+                this.killStreak++;
+            }
+        }
+        */
+
+    }
+
     IEnumerator Respawn() 
     {   
+
         if(playerWhoKillMe.PV.InstantiationId != this.PV.InstantiationId)
             StartCoroutine(ShowMessage(playerWhoKillMe.Nickname + " meteu bala em você"));
         else 
             StartCoroutine(ShowMessage("Você se matou KKKK"));
+            
+        this.deathCounter++;
+        this.killStreak = 0;
 
-        object[] instanceData = new object[2];
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.killCounter;
+        instanceData[2] = this.deathCounter;
+
+        //PV.RPC("UpdateKD",RpcTarget.All,instanceData);
+        PV.RPC("UpdateRanking",RpcTarget.All,instanceData);
+
+        /*
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.killCounter;
+        instanceData[2] = this.deathCounter;
+        PV.RPC("UpdateRanking",RpcTarget.All,instanceData);
+        */
         instanceData[0] = gunIndex;
         yield return new WaitForSeconds(0.1f);
-        this.killStreak = 0;
         this.jumpingAnim = false;
         this.runningAnim = false;
         this.isAiming = false;
@@ -1062,10 +1168,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator ShowMessage(string message) 
     {   
-        this.streakText.text =  message;
-        this.streakText.color = new Color(this.streakText.color.r, this.streakText.color.g, this.streakText.color.b, 100f);
+        this.messageText.text =  message;
+        this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 100f);
         yield return new WaitForSeconds(4f);
-        this.streakText.color = new Color(this.streakText.color.r, this.streakText.color.g, this.streakText.color.b, 0f);
+        this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 0f);
         
     }
 
