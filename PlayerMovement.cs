@@ -89,7 +89,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     GameObject weaponCamera;
     DI_System damageIndicator;
     HeadPosition headPosition;
-    PlayerMovement playerWhoKillMe;
+    PlayerMovement playerWhoKilledMe;
 
     [HideInInspector] public Camera fpsCam;
     [HideInInspector] public Canvas canvas;
@@ -152,12 +152,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(auxAudio != null)
             generalAudios.Add(auxAudio);
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
-
-        //GameManager.updateRequest.Add(true);
-
-        //PV.RPC("updatePlayer",RpcTarget.AllBuffered);
-        //updateRanking = GameObject.Find("GeneralCanvas").GetComponentInChildren<UpdateRanking>();
-        //updateRanking.UpdatePlayers(); 
 
         if(PV.IsMine)
 		{   
@@ -578,12 +572,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void RemoveScope() 
     {   
-        //yield return new WaitForSeconds(.15f);
+        isAiming = false;
         fpsCam.fieldOfView = 60f;
         sniperScope.SetActive(false);
         weaponCamera.SetActive(true);
-
-        //yield return new WaitForSeconds(.001f);
         
         handAnimator[gunIndex].SetBool("Sight", false);
 
@@ -640,7 +632,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 return;
 
             if(Input.GetButtonDown("Fire2")){
-                if(actualWeapon == 3 || (gunIndex == 5 && Time.time < nextTimeToFire))
+                if(gunIndex == 0 || (gunIndex == 5 && Time.time < nextTimeToFire))
                     return;
 
                 isAiming = !isAiming;
@@ -837,14 +829,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(amount != 0 ){
                 if(hit.transform.gameObject){
                     PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
-                    if(hit.transform.tag == "PlayerHead")
-                        hitMarker.HeadshotHit();
-                    else
-                        hitMarker.BodyHit();
-                    
-                    instanceData[1] = target.PV.InstantiationId;
-                    instanceData[2] = amount;
-                    PV.RPC("TakeDamage",RpcTarget.All,instanceData);
+
+                    if(target != null && target.health > 0){
+                        if(hit.transform.tag == "PlayerHead")
+                            hitMarker.HeadshotHit();
+                        else
+                            hitMarker.BodyHit();
+                        
+                        instanceData[1] = target.PV.InstantiationId;
+                        instanceData[2] = amount;
+                        PV.RPC("TakeDamage",RpcTarget.All,instanceData);
+                    }
                 }
             } else {
                 PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
@@ -853,43 +848,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         shootingAnim = false;
 
-        if(gunIndex == 5)
-            isAiming = false;
+        if(gunIndex == 5){
+            RemoveScope();
+        }
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
-
-    [PunRPC]
-    public void UpdateRanking(object[] instantiationData) 
-    {   
+    public void UpdateScore()
+    {
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
-
-        int firstDeaths = this.deathCounter;
-        int firstKills = this.killCounter;
-        string firstNick = this.Nickname;
-
-        string texto = "";
-
-
-        Debug.Log(instantiationData[1]);
-        Debug.Log((int)instantiationData[2]);
-
-        for (int i = 0; i < players.Length; i++)
-        {
-            Debug.Log(players[i].Nickname + " " + players[i].killCounter.ToString() + "/" + players[i].deathCounter.ToString());
-            
-            if(players[i].PV.InstantiationId == (int)instantiationData[0]){
-                players[i].killCounter = (int)instantiationData[1];
-                players[i].deathCounter = (int)instantiationData[2];
-            }
-
-        }
-
         PlayerMovement [] playersOrder = players;
 
         for (int j=1; j<playersOrder.Length; j++) {
-            for (int i=j; i>0 && playersOrder[i].deathCounter > playersOrder[i-1].deathCounter; i--) {
+            for (int i=j; i>0 && playersOrder[i].killCounter > playersOrder[i-1].killCounter; i--) {
                 PlayerMovement temporary;
                 temporary = playersOrder [i];
                 playersOrder [i] = playersOrder [i - 1];
@@ -897,70 +869,65 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }
         }
 
+        string texto = "";
+
         for (int i = 0; i < playersOrder.Length; i++)
         {
-            texto = texto + players[i].Nickname + " " + players[i].killCounter + "/" + players[i].deathCounter + "\n";
+            texto = texto + players[i].Nickname + " " + players[i].killCounter + "\n";//"/" + players[i].deathCounter + "\n";
         }
         
         if(rankingText)
-            rankingText.text = texto; //firstNick + " " + firstKills.ToString() + "/" + firstDeaths.ToString();
+            rankingText.text = texto;
     }
 
     [PunRPC]
-    public void UpdateKD(object[] instantiationData)
-    {   
+    public void UpdateRanking()
+    {      
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
 
-        //object[] instanceData = new object[3];
-     
-        if(this.PV.InstantiationId == (int)instantiationData[0]){
-
-            this.deathCounter++;
-            this.killStreak = 0;
-            
+        for (int i=0; i<players.Length; i++)
+        {
+            players[i].UpdateScore();
         }
-
         
-        /*
+    }
 
-        Debug.Log("whoDies: " + playerWhoDies + " / whoKills: " + playerWhoKills + " / eu: " + this.PV.InstantiationId);
-        if(playerWhoDies != playerWhoKills){
-            if(this.PV.InstantiationId == playerWhoKills){
+    [PunRPC]
+    public void UpdateKD(int InstantiationID)
+    {   
+        
+        /*Debug.Log("EU: " + this.PV.InstantiationId + " - " + InstantiationID);
 
-                Debug.Log(this.PV.InstantiationId + " eu q matei o palhaço do " + playerWhoKills);
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
 
-                this.killCounter++;
-                this.killStreak++;
+        for (int i=0; i < players.Length; i++) {
+            if(players[i].PV.InstantiationId == InstantiationID){
+                players[i].deathCounter++;
+                players[i].killStreak = 0;
             }
         }
-        */
-
+        
+        PV.RPC("UpdateRanking",RpcTarget.All);*/
     }
 
     IEnumerator Respawn() 
     {   
 
-        if(playerWhoKillMe.PV.InstantiationId != this.PV.InstantiationId)
-            StartCoroutine(ShowMessage(playerWhoKillMe.Nickname + " meteu bala em você"));
+        if(playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId)
+            StartCoroutine(ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você"));
         else 
             StartCoroutine(ShowMessage("Você se matou KKKK"));
             
         this.deathCounter++;
         this.killStreak = 0;
 
+        if(rankingText)
+            rankingText.text = this.Nickname + " " + this.killCounter + "/" + this.deathCounter + "\n";
+
         object[] instanceData = new object[3];
-        instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = this.killCounter;
-        instanceData[2] = this.deathCounter;
 
-        //PV.RPC("UpdateKD",RpcTarget.All,instanceData);
-        PV.RPC("UpdateRanking",RpcTarget.All,instanceData);
-
-        /*
-        instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = this.killCounter;
-        instanceData[2] = this.deathCounter;
-        PV.RPC("UpdateRanking",RpcTarget.All,instanceData);
-        */
+        //PV.RPC("UpdateKD",RpcTarget.Others,this.PV.InstantiationId);
+        
         instanceData[0] = gunIndex;
         yield return new WaitForSeconds(0.1f);
         this.jumpingAnim = false;
@@ -1078,14 +1045,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
                 whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
 
-            
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
             if(whoReceivedDamage.health <= 0){
-            
+                
                 whoReceivedDamage.health = 0;
 
-                whoReceivedDamage.playerWhoKillMe = whoCausedDamage;
+                if(this.PV.InstantiationId == whoCausedDamage.PV.InstantiationId){
+                    this.killCounter++;
+                    this.killStreak++;
+
+                    PV.RPC("UpdateRanking",RpcTarget.All);
+                }
+
+                whoReceivedDamage.playerWhoKilledMe = whoCausedDamage;
 
             }   
         }
@@ -1096,8 +1069,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 this.killStreak++;
                 this.CheckKillStreak();
             }
-        }
-        */
+        }*/
         
     }
 
