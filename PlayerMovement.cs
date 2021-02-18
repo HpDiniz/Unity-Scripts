@@ -14,12 +14,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
+    private float resetingTime = 0f;
+    private float nextTimeToFire = 0f;
 
     private PlayerSounds playerSound;
 
     private float walk_Step_Distance = 0.42f;
     private float sprint_Step_Distance = 0.38f;
     private float crouch_Step_Distance = 0.54f;
+
+    string winner = "";
+
+    bool resetGame = false;
 
     [HideInInspector] public float walkMagnitude;
 
@@ -34,12 +40,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     ChangeDroppedGun nearDroppedWeapon;
     Transform nearTransformDroppedWeapon;
 
-    public int health = 100;
+    public int health = 200;
 
     [HideInInspector] public ParticleSystem muzzleFlash;
     [HideInInspector] public GameObject impactEffect;
-
-    private float nextTimeToFire = 0f;
 
     [HideInInspector] public bool noGuns = false;
     byte actualWeapon;
@@ -65,8 +69,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int killCounter = 0;
     [HideInInspector] public int deathCounter = 0;
 
-    IEnumerator sensibilityRoutine; // create an IEnumerator object
-    IEnumerator actualRoutine; // create an IEnumerator object
+    IEnumerator sensibilityRoutine;
+    IEnumerator messageRoutine;
+    IEnumerator actualRoutine;
     Vector3 velocity;
 
     bool isAiming = false;
@@ -254,9 +259,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(controller);
             Destroy(canvas);
 		}
-        //GameManager.updateRequest.Add(true);
 
+        resetGame = false;
         ChangeGhostGun();
+        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
     }
 
     // Update is called once per frame
@@ -264,8 +270,34 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         if(!PV.IsMine)
 			return;
+
+        if(resetGame){
+            StartCoroutine(ResetGame(winner));
+            return;
+        }
+
         if(waitingForSpawn)
             return;
+
+        /*
+        if(resetingTime != 0f){
+            if(Time.time >= resetingTime){
+                PhotonNetwork.LoadLevel(1);
+            }
+
+            if(messageRoutine != null)
+                StopCoroutine(messageRoutine);
+
+            messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
+            StartCoroutine(messageRoutine);        
+        }
+        */
+        
+        if(deathCounter >= 1){
+            waitingForSpawn = true;
+            PV.RPC("CallMethodForAllPlayers",RpcTarget.All,1,this.Nickname);
+        }
+        
 
         if(this.health < 1){
             this.health = 0;
@@ -631,6 +663,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(isReloading || CurrentAnimation() == "Reload")
                 return;
 
+            
+                
             if(Input.GetButtonDown("Fire2")){
                 if(gunIndex == 0 || (gunIndex == 5 && Time.time < nextTimeToFire))
                     return;
@@ -855,6 +889,41 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
+    IEnumerator ResetGame(string winner){
+        if(messageRoutine != null)
+            StopCoroutine(messageRoutine);
+
+        messageRoutine = ShowMessage(winner + " é o vencedor!",7f);
+        StartCoroutine(messageRoutine);
+
+        yield return new WaitForSeconds(8f);
+
+        resetGame = false;
+        PhotonNetwork.LoadLevel(1);
+    }
+
+    public void QuitGame(string winner)
+    {
+        //this.waitingForSpawn = true;
+
+        //resetingTime = Time.time + 10f;
+        this.resetGame = true;
+        this.winner = winner;
+
+        /*
+        if(messageRoutine != null)
+            StopCoroutine(messageRoutine);
+
+        PhotonNetwork.LoadLevel(1);
+
+        messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
+        StartCoroutine(messageRoutine);
+        */
+        
+        //StartCoroutine(ResetGame(winner));
+        
+    }
+
     public void UpdateScore()
     {
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
@@ -873,7 +942,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         for (int i = 0; i < playersOrder.Length; i++)
         {
-            texto = texto + players[i].Nickname + " " + players[i].killCounter + "\n";//"/" + players[i].deathCounter + "\n";
+            if(!texto.Contains(players[i].Nickname))
+                texto = texto + players[i].Nickname + " " + players[i].killCounter + "\n";//"/" + players[i].deathCounter + "\n";
         }
         
         if(rankingText)
@@ -881,48 +951,42 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
 
     [PunRPC]
-    public void UpdateRanking()
+    public void CallMethodForAllPlayers(int method, string winner)
     {      
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
 
         for (int i=0; i<players.Length; i++)
-        {
-            players[i].UpdateScore();
-        }
-        
-    }
-
-    [PunRPC]
-    public void UpdateKD(int InstantiationID)
-    {   
-        
-        /*Debug.Log("EU: " + this.PV.InstantiationId + " - " + InstantiationID);
-
-        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
-
-        for (int i=0; i < players.Length; i++) {
-            if(players[i].PV.InstantiationId == InstantiationID){
-                players[i].deathCounter++;
-                players[i].killStreak = 0;
+        {   
+            if(method == 0)
+                players[i].UpdateScore();
+            else if(method == 1){
+                players[i].resetGame = true;
+                players[i].winner = winner;
+                //players[i].QuitGame(winner);
+                //players[i].StartCoroutine(ResetGame(winner));   
             }
         }
-        
-        PV.RPC("UpdateRanking",RpcTarget.All);*/
+
     }
 
     IEnumerator Respawn() 
     {   
 
-        if(playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId)
-            StartCoroutine(ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você"));
-        else 
-            StartCoroutine(ShowMessage("Você se matou KKKK"));
+        if(playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId){
+            messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você",4f);
+        }else {
+            messageRoutine = ShowMessage("Você se matou KKKK",4f);
+        }
+
+        StartCoroutine(messageRoutine);
             
         this.deathCounter++;
         this.killStreak = 0;
 
+        /*
         if(rankingText)
             rankingText.text = this.Nickname + " " + this.killCounter + "/" + this.deathCounter + "\n";
+        */
 
         object[] instanceData = new object[3];
 
@@ -940,8 +1004,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         ChangeRoutine(ChangeGuns(this.terciaryGun));
 
-        this.actualWeapon = 1;
-        this.enabled = false;
+        this.actualWeapon = 3;
+        
         yield return new WaitForSeconds(0.1f);
         if((int)instanceData[0] != terciaryGun.gunIndex)
             PhotonNetwork.Instantiate("DroppedGun",this.transform.position, Quaternion.identity,0,instanceData);
@@ -952,7 +1016,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.primaryGun = null;
         this.secondaryGun = null;
         this.health = 200;
-        this.enabled = true;
+        
         this.waitingForSpawn = false;
 
         instanceData[0] = this.PV.InstantiationId;
@@ -1055,7 +1119,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     this.killCounter++;
                     this.killStreak++;
 
-                    PV.RPC("UpdateRanking",RpcTarget.All);
+                    PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
                 }
 
                 whoReceivedDamage.playerWhoKilledMe = whoCausedDamage;
@@ -1138,19 +1202,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
     }
 
-    IEnumerator ShowMessage(string message) 
+    IEnumerator ShowMessage(string message, float timing) 
     {   
-        this.messageText.text =  message;
-        this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 100f);
-        yield return new WaitForSeconds(4f);
-        this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 0f);
+        if(messageText){
+            this.messageText.text =  message;
+            this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 100f);
+            yield return new WaitForSeconds(timing);
+            this.messageText.color = new Color(this.messageText.color.r, this.messageText.color.g, this.messageText.color.b, 0f);
+        }
         
     }
 
     void CheckKillStreak()
     {   
         if(this.killStreak % 5 == 0){
-            StartCoroutine(ShowMessage(this.killStreak.ToString() + " Kill Streak"));
+            messageRoutine = ShowMessage(this.killStreak.ToString() + " Kill Streak",4f);
+            StartCoroutine(messageRoutine);
         }
         /*
         if(this.killStreak == 10){
@@ -1205,5 +1272,73 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(!generalAudios[(int)instantiationData[0]].isPlaying)
             generalAudios[(int)instantiationData[0]].Play(0);
     }
+
+    /*
+    IEnumerator ResetGame(string winner)
+    {
+        
+        if(messageRoutine != null)
+            StopCoroutine(messageRoutine);
+
+        messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
+        StartCoroutine(messageRoutine);
+
+        yield return new WaitForSeconds(10f);
+
+        this.waitingForSpawn = true;
+        this.meleeTime = 0.7f;
+        this.reloadingTime = 1.5f;
+
+        this.walk_Step_Distance = 0.42f;
+        this.sprint_Step_Distance = 0.38f;
+        this.crouch_Step_Distance = 0.54f;
+
+        this.health = 200;
+
+        this.nextTimeToFire = 0f;
+        this.gunIndex = 0;
+
+        this.killStreak = 0;
+        this.killCounter = 0;
+        this.deathCounter = 0;
+
+        yield return new WaitForSeconds(0.1f);
+
+        this.jumpingAnim = false;
+        this.runningAnim = false;
+        this.isAiming = false;
+        this.isCrounching = false;
+        this.isReloading = false;
+        this.idleAnim = true;
+
+        ChangeRoutine(ChangeGuns(this.terciaryGun));
+
+        this.actualWeapon = 3;
+        
+        yield return new WaitForSeconds(0.1f);
+
+        float x = Random.Range((this.heaven.transform.position.x - 5f), (this.heaven.transform.position.x + 5f));
+        float z = Random.Range((this.heaven.transform.position.z - 5f), this.heaven.transform.position.z + 5f);
+        this.transform.position = new Vector3(x,this.heaven.transform.position.y + 4f,z);
+        yield return new WaitForSeconds(0.4f);
+
+        this.primaryGun = null;
+        this.secondaryGun = null;
+        this.velocity.y = -2f;
+        this.health = 200;
+        this.speed = 5.5f;
+
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.health;
+
+        PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
+        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+
+        yield return new WaitForSeconds(0.1f);
+
+        this.waitingForSpawn = false;
+    }
+    */
 
 }
