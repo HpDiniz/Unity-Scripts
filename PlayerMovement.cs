@@ -14,7 +14,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
-    private float resetingTime = 0f;
     private float nextTimeToFire = 0f;
 
     private PlayerSounds playerSound;
@@ -25,8 +24,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     string winner = "";
 
-    bool resetGame = false;
-
+    [HideInInspector] public bool resetGame = false;
     [HideInInspector] public float walkMagnitude;
 
     [HideInInspector] public float range;
@@ -72,6 +70,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator sensibilityRoutine;
     IEnumerator messageRoutine;
     IEnumerator actualRoutine;
+    IEnumerator resetRoutine;
     Vector3 velocity;
 
     bool isAiming = false;
@@ -272,32 +271,21 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			return;
 
         if(resetGame){
-            StartCoroutine(ResetGame(winner));
+            if(resetRoutine == null){
+                resetRoutine = ResetGame(winner);
+                StartCoroutine(resetRoutine);
+            }
+            
             return;
         }
 
         if(waitingForSpawn)
             return;
-
-        /*
-        if(resetingTime != 0f){
-            if(Time.time >= resetingTime){
-                PhotonNetwork.LoadLevel(1);
-            }
-
-            if(messageRoutine != null)
-                StopCoroutine(messageRoutine);
-
-            messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
-            StartCoroutine(messageRoutine);        
-        }
-        */
         
-        if(deathCounter >= 1){
+        if(killCounter >= 2){
             waitingForSpawn = true;
             PV.RPC("CallMethodForAllPlayers",RpcTarget.All,1,this.Nickname);
         }
-        
 
         if(this.health < 1){
             this.health = 0;
@@ -547,6 +535,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }else
                     handWeapons[i].SetActive(false);
             }
+
+            RuntimeAnimatorController ac = handAnimator[gunIndex].runtimeAnimatorController;    //Get Animator controller
+            for(int i = 0; i<ac.animationClips.Length; i++)                 //For all animations
+            {
+                if(ac.animationClips[i].name == "Reload")        //If it has the same name as your clip
+                {
+                    reloadingTime = ac.animationClips[i].length;
+                }
+            }
+
             UpdateAmmo(weapon);
             damage = weapon.damage;
             fireRate = weapon.fireRate;
@@ -604,7 +602,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void RemoveScope() 
     {   
-        isAiming = false;
+        //isAiming = false;
         fpsCam.fieldOfView = 60f;
         sniperScope.SetActive(false);
         weaponCamera.SetActive(true);
@@ -643,8 +641,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(isChangingGuns)
             return;
 
-        if(gunIndex == 5 && CurrentAnimation() == "Fire"){
-            RemoveScope();
+        if(gunIndex == 5 && Time.time < nextTimeToFire){
+            //RemoveScope();
             return;
         }
 
@@ -663,10 +661,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(isReloading || CurrentAnimation() == "Reload")
                 return;
 
-            
-                
             if(Input.GetButtonDown("Fire2")){
-                if(gunIndex == 0 || (gunIndex == 5 && Time.time < nextTimeToFire))
+                if(gunIndex == 0)
                     return;
 
                 isAiming = !isAiming;
@@ -688,9 +684,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     if(Time.time >= nextTimeToFire){
                         nextTimeToFire = Time.time + fireRate;
 
-                        /*if(gunIndex == 5){
-                            handAnimator[gunIndex].SetBool("Sight", false);
-                        }*/
                         if(gunIndex != 5)
                             handAnimator[gunIndex].SetInteger("Fire", 1);
                         else {
@@ -707,8 +700,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         handAnimator[gunIndex].SetInteger("Fire", 0);
                     if(totalAmmo > 0){
                         if(clipSize != currentAmmo){
-                            isReloading = true;
-                            ChangeRoutine(Reload());
+                            if(Time.time >= nextTimeToFire){
+                                isReloading = true;
+                                ChangeRoutine(Reload());
+                            }
                         }
                     }
                 }  
@@ -762,6 +757,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         instanceData[1] = gunIndex+6;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
+
+        Debug.Log(reloadingTime);
 
         yield return new WaitForSeconds(reloadingTime);
         handAnimator[gunIndex].SetInteger("Reload", 0);
@@ -840,9 +837,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         RaycastHit hit;
 
         Vector3 targetPosition;
-        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire" || (isAiming && gunIndex == 5))
+        
+        if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire" || (isAiming && gunIndex == 5)){
             targetPosition = fpsCam.transform.forward;
-        else{
+        }else{
             float magnitude;
             magnitude = walkMagnitude > 0.1 ? 0.125f : 0.06f;
             targetPosition = new Vector3(fpsCam.transform.forward.x + Random.Range(-magnitude, magnitude),fpsCam.transform.forward.y + Random.Range(-magnitude, magnitude), fpsCam.transform.forward.z + Random.Range(-magnitude, magnitude));
@@ -884,44 +882,49 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(gunIndex == 5){
             RemoveScope();
+            isAiming = false;
         }
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
     IEnumerator ResetGame(string winner){
+
+        handAnimator[gunIndex].SetFloat("Walk_magnitude", 0f);
+        handAnimator[gunIndex].SetBool("W_pressed", false);
+        handAnimator[gunIndex].SetInteger("Reload", 0);
+        handAnimator[gunIndex].SetBool("Sight", false);
+
+        if(gunIndex != 5)
+            handAnimator[gunIndex].SetBool("Fire", false);
+
+        bodyAnimator.SetFloat("Walk_magnitude", 0f);
+        bodyAnimator.SetBool("Crouch", false);
+        bodyAnimator.SetBool("Jump", false);
+        bodyAnimator.SetBool("Run", false);
+
         if(messageRoutine != null)
             StopCoroutine(messageRoutine);
 
-        messageRoutine = ShowMessage(winner + " é o vencedor!",7f);
+        messageRoutine = ShowMessage(winner + " é o vencedor!",8f);
         StartCoroutine(messageRoutine);
 
         yield return new WaitForSeconds(8f);
 
-        resetGame = false;
-        PhotonNetwork.LoadLevel(1);
+        StartCoroutine(RestartGame());
+    
     }
 
-    public void QuitGame(string winner)
+    public void ResetScore()
     {
-        //this.waitingForSpawn = true;
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
 
-        //resetingTime = Time.time + 10f;
-        this.resetGame = true;
-        this.winner = winner;
-
-        /*
-        if(messageRoutine != null)
-            StopCoroutine(messageRoutine);
-
-        PhotonNetwork.LoadLevel(1);
-
-        messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
-        StartCoroutine(messageRoutine);
-        */
-        
-        //StartCoroutine(ResetGame(winner));
-        
+        for (int i=0; i<players.Length; i++)
+        {   
+            players[i].killStreak = 0;
+            players[i].killCounter = 0;
+            players[i].deathCounter = 0;
+        }
     }
 
     public void UpdateScore()
@@ -961,9 +964,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 players[i].UpdateScore();
             else if(method == 1){
                 players[i].resetGame = true;
-                players[i].winner = winner;
-                //players[i].QuitGame(winner);
-                //players[i].StartCoroutine(ResetGame(winner));   
+                players[i].winner = winner;  
+            } else if(method == 2){
+                players[i].ResetScore();
             }
         }
 
@@ -1273,18 +1276,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             generalAudios[(int)instantiationData[0]].Play(0);
     }
 
-    /*
-    IEnumerator ResetGame(string winner)
-    {
-        
-        if(messageRoutine != null)
-            StopCoroutine(messageRoutine);
-
-        messageRoutine = ShowMessage(winner + " é o vencedor!",10f);
-        StartCoroutine(messageRoutine);
-
-        yield return new WaitForSeconds(10f);
-
+    
+    IEnumerator RestartGame()
+    {   
         this.waitingForSpawn = true;
         this.meleeTime = 0.7f;
         this.reloadingTime = 1.5f;
@@ -1333,12 +1327,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         instanceData[1] = this.health;
 
         PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
-        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
-
+        
         yield return new WaitForSeconds(0.1f);
 
         this.waitingForSpawn = false;
+        this.resetGame = false;
+        this.resetRoutine = null;
+
+        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,2,"");
+        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
     }
-    */
 
 }

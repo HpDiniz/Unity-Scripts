@@ -39,7 +39,8 @@ public class PlayerSounds : MonoBehaviourPunCallbacks
     // Update is called once per frame
     void Update()
     {
-        CheckFootstepSound();
+        if(!characterController.resetGame)
+            CheckFootstepSound();
 
     }
 
