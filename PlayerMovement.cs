@@ -15,6 +15,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float meleeTime = 0.7f;
     private float reloadingTime = 1.5f;
     private float nextTimeToFire = 0f;
+    private float nextTimeToScream = 0f;
 
     private PlayerSounds playerSound;
 
@@ -85,6 +86,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public bool sprintingAnim = false;
     [HideInInspector] public bool idleAnim = true;
     [HideInInspector] public bool shootingAnim = false;
+
+    GameObject terrain;
+    Terrain worldTerrain;
     
     Vector3 move;
     Transform heaven;
@@ -149,13 +153,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         AudioSource auxAudio = GameObject.Find("aHeroHasFallen").GetComponent<AudioSource>();
         if(auxAudio != null)
             generalAudios.Add(auxAudio);
+
         auxAudio = GameObject.Find("ameacaSound").GetComponent<AudioSource>();
         if(auxAudio != null)
             generalAudios.Add(auxAudio);
+
         auxAudio = GameObject.Find("gireiSound").GetComponent<AudioSource>();
         if(auxAudio != null)
             generalAudios.Add(auxAudio);
+        
+        auxAudio = GameObject.Find("nukeSound").GetComponent<AudioSource>();
+        if(auxAudio != null)
+            generalAudios.Add(auxAudio);
+
         heaven = GameObject.Find("Heaven").GetComponent<Transform>();
+        terrain = GameObject.Find("Terrain");
+		worldTerrain = terrain.GetComponent<Terrain>();
 
         if(PV.IsMine)
 		{   
@@ -282,7 +295,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(waitingForSpawn)
             return;
         
-        if(killCounter >= 2){
+        if(killCounter >= 30){
             waitingForSpawn = true;
             PV.RPC("CallMethodForAllPlayers",RpcTarget.All,1,this.Nickname);
         }
@@ -311,7 +324,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(nearDroppedWeapon != null){
             
             float distance = Vector3.Distance(this.transform.position, nearTransformDroppedWeapon.position);
-            if(distance < 1.4){
+            if(distance < 3){
                 if((primaryGun != null && nearDroppedWeapon.currentGunIndex == primaryGun.gunIndex)||(secondaryGun != null && nearDroppedWeapon.currentGunIndex == secondaryGun.gunIndex)){
                     if(nearDroppedWeapon.currentGunIndex == primaryGun.gunIndex){
                         if(primaryGun.totalAmmo < primaryGun.maxAmmo){
@@ -390,6 +403,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         CheckSpeed();
         CheckHands();
+        CheckScreams();
 
         float targetHeight;
         if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
@@ -425,6 +439,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(isGrounded && velocity.y <0)
         {   
+            /*
+            if(jumpingAnim){
+                object[] instanceData = new object[2];
+                instanceData[0] = this.PV.InstantiationId;
+                instanceData[1] = 25;
+
+                PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
+            }
+            */
             bodyAnimator.SetBool("Jump", false);
             jumpingAnim = false;
             velocity.y = -2f;
@@ -512,8 +535,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 sniperScope.SetActive(false);
                 weaponCamera.SetActive(true);
                 fpsCam.fieldOfView = 60f;
-
-                this.handAnimator[gunIndex].SetTrigger("TakeOut");
+                
+                if(gunIndex > 0)
+                    this.handAnimator[gunIndex].SetTrigger("TakeOut");
 
                 if((gunIndex == 4 || gunIndex == 5) && wasAiming)
                     yield return new WaitForSeconds(0.6f);
@@ -549,7 +573,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             damage = weapon.damage;
             fireRate = weapon.fireRate;
             range = weapon.range;
-            reloadingTime = weapon.reloadingTime;
             ChangeGhostGun();
 
             if(bulletsText){
@@ -573,8 +596,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(!isGrounded)
             return;
 
+            Debug.Log(CurrentAnimation());
+
         if(isCrounching){
-            
             playerSound.step_Distance = crouch_Step_Distance;
             playerSound.walkingStatus = 2;
 
@@ -758,8 +782,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
-        Debug.Log(reloadingTime);
-
         yield return new WaitForSeconds(reloadingTime);
         handAnimator[gunIndex].SetInteger("Reload", 0);
        // handAnimator[gunIndex].SetBool("Sight", false);
@@ -816,6 +838,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void Shoot()
     {  
+        int killCounterBefore = this.killCounter;
         shootingAnim = true;
         if(!isAiming && CurrentAnimation() == "Fire")
             muzzleFlash.Play();
@@ -850,11 +873,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             int amount = 0;
 
             if(hit.transform.tag == "PlayerHead")
-                amount = gunIndex == 5 ? (int)(damage * 2) : (int)((damage - (hit.distance)/10) * 2);
+                amount = gunIndex == 5 ? (int)(damage * 2) : (int)((damage - (hit.distance)/50) * 2);
             else if(hit.transform.tag == "PlayerTorso")
-                amount = gunIndex == 5 ? (int)(damage * 1.25) : (int)((damage - (hit.distance)/10) * 1.25);
+                amount = gunIndex == 5 ? (int)(damage * 1.25) : (int)((damage - (hit.distance)/50) * 1.25);
             else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
-                amount = gunIndex == 5 ? (int)(damage) : (int)((damage - (hit.distance)/10));
+                amount = gunIndex == 5 ? (int)(damage) : (int)((damage - (hit.distance)/50));
             else if(hit.transform.tag == "Enemy")
                 hitMarker.BodyHit();
         
@@ -885,6 +908,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             isAiming = false;
         }
 
+        if(this.killCounter != killCounterBefore)
+            CheckKillStreak();
+
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }
 
@@ -896,7 +922,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         handAnimator[gunIndex].SetBool("Sight", false);
 
         if(gunIndex != 5)
-            handAnimator[gunIndex].SetBool("Fire", false);
+            handAnimator[gunIndex].SetInteger("Fire", 0);
 
         bodyAnimator.SetFloat("Walk_magnitude", 0f);
         bodyAnimator.SetBool("Crouch", false);
@@ -975,7 +1001,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator Respawn() 
     {   
 
-        if(playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId){
+        if(playerWhoKilledMe != null && playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId){
             messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você",4f);
         }else {
             messageRoutine = ShowMessage("Você se matou KKKK",4f);
@@ -1012,10 +1038,61 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         yield return new WaitForSeconds(0.1f);
         if((int)instanceData[0] != terciaryGun.gunIndex)
             PhotonNetwork.Instantiate("DroppedGun",this.transform.position, Quaternion.identity,0,instanceData);
+
+        bool setRandomPosition = false;
+
+
+        float terrainLeft = worldTerrain.transform.position.x;
+		float terrainBottom = worldTerrain.transform.position.z;
+		float terrainWidth = worldTerrain.terrainData.size.x;
+		float terrainLength = worldTerrain.terrainData.size.z;
+		float terrainRight = terrainLeft + terrainWidth;
+		float terrainTop = terrainBottom + terrainLength;
+		float terrainHeight = 0f;
+		RaycastHit hit;
+		float randomPositionX, randomPositionY, randomPositionZ;
+		Vector3 randomPosition = Vector3.zero;
+
+        while(!setRandomPosition){
+
+            randomPositionX = Random.Range(terrainLeft, terrainRight);
+            randomPositionZ = Random.Range(terrainBottom, terrainTop);
+
+            if(Physics.Raycast(new Vector3(randomPositionX, 9999f, randomPositionZ), Vector3.down, out hit, Mathf.Infinity, terrain.layer)){
+                terrainHeight = hit.point.y;
+            }
+
+            randomPositionY = terrainHeight + 45f;
+            randomPosition = new Vector3(randomPositionX, randomPositionY, randomPositionZ);
+
+            PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+
+            float nearDistance = 5000f;
+        
+            foreach (PlayerMovement player in players)
+            {
+                if(player.PV.InstantiationId != this.PV.InstantiationId){
+                    float playerDistance = Vector3.Distance (player.transform.position, randomPosition);
+                    if(playerDistance < nearDistance)
+                        nearDistance = playerDistance;
+                }
+            }
+
+            if(nearDistance >=100)
+                setRandomPosition = true;
+
+        }
+
+        this.transform.position = randomPosition;
+
+        /*
         float x = Random.Range((this.heaven.transform.position.x - 5f), (this.heaven.transform.position.x + 5f));
         float z = Random.Range((this.heaven.transform.position.z - 5f), this.heaven.transform.position.z + 5f);
         this.transform.position = new Vector3(x,this.heaven.transform.position.y + 4f,z);
+        */
+        ChangeRoutine(ChangeGuns(this.terciaryGun));
         yield return new WaitForSeconds(0.4f);
+        
         this.primaryGun = null;
         this.secondaryGun = null;
         this.health = 200;
@@ -1118,25 +1195,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 
                 whoReceivedDamage.health = 0;
 
-                if(this.PV.InstantiationId == whoCausedDamage.PV.InstantiationId){
-                    this.killCounter++;
-                    this.killStreak++;
+                if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId){
+                    if(this.PV.InstantiationId == whoCausedDamage.PV.InstantiationId){
+                        this.killCounter++;
+                        this.killStreak++;
 
-                    PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+                        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+                    }
                 }
-
+                
                 whoReceivedDamage.playerWhoKilledMe = whoCausedDamage;
 
             }   
         }
-        /*
-        if(this.PV.InstantiationId == (int) instantiationData[0]){
-            if(enemyKilled){
-                this.killCounter++;
-                this.killStreak++;
-                this.CheckKillStreak();
-            }
-        }*/
         
     }
 
@@ -1154,27 +1225,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             noGuns = false;
         } 
-    }
-
-    [PunRPC]
-    public void CheckWinner()
-    {   
-        PlayerMovement[] players = GetComponents<PlayerMovement>();
-
-        int stillAlive = 0;
-        string winnerName = "";
-
-        for (int i = 0; i < players.Length; i++)
-        {
-            if(players[i].deathCounter == 0){
-                stillAlive++;
-                winnerName = players[i].Nickname;
-            }
-        }
-
-        if(stillAlive == 1){
-            Debug.Log(winnerName + " é o vencedor!");
-        }
     }
 
     [PunRPC]
@@ -1216,29 +1266,47 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
     }
 
+    void CheckScreams()
+    {   
+        int willScream = -1;
+
+        if(Input.GetKeyDown(KeyCode.Alpha4))
+            willScream = 26;
+        else if(Input.GetKeyDown(KeyCode.Alpha5))
+            willScream = 27;
+        else if(Input.GetKeyDown(KeyCode.Alpha6))
+            willScream = 28;
+        else if(Input.GetKeyDown(KeyCode.Alpha7))
+            willScream = 29;
+        else if(Input.GetKeyDown(KeyCode.Alpha8))
+            willScream = 30;
+
+        if(willScream > 0){
+            if(Time.time >= nextTimeToScream){
+                nextTimeToScream = Time.time + 3.0f;
+    
+                object[] instanceData = new object[2];
+                instanceData[0] = this.PV.InstantiationId;
+                instanceData[1] = willScream;
+
+                PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
+            }
+        }
+    }
+
     void CheckKillStreak()
     {   
         if(this.killStreak % 5 == 0){
             messageRoutine = ShowMessage(this.killStreak.ToString() + " Kill Streak",4f);
             StartCoroutine(messageRoutine);
-        }
-        /*
-        if(this.killStreak == 10){
-            
-            StartCoroutine(ShowMessage("10"));
-            object[] instanceData = new object[2];
-            instanceData[0] = 2;
-            instanceData[1] = false;
-            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
-        } else if(this.killStreak == 5){
 
-            StartCoroutine(ShowMessage("5"));
-            object[] instanceData = new object[2];
-            instanceData[0] = 1;
-            instanceData[1] = false;
-            PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
+            if(this.killStreak < 16){
+                object[] instanceData = new object[2];
+                instanceData[0] = this.killStreak/5;
+                instanceData[1] = false;
+                PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
+            }
         }
-        */
     }
 
     [PunRPC]

@@ -9,7 +9,6 @@ public class WeaponStats : MonoBehaviour
     public int damage;
     public float fireRate;
     public float range;
-    public float reloadingTime;
     public int gunIndex;
     public string gunName;
 

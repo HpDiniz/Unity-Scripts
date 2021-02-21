@@ -71,25 +71,46 @@ public class RoomManager : MonoBehaviourPunCallbacks
 
 		do {
 			i++;
-			randomPositionX = Random.Range(terrainLeft, terrainRight);
-			randomPositionZ = Random.Range(terrainBottom, terrainTop);
-			if(Physics.Raycast(new Vector3(randomPositionX, 9999f, randomPositionZ), Vector3.down, out hit, Mathf.Infinity, terrain.layer)){
-				terrainHeight = hit.point.y;
-			}
-			randomPositionY = terrainHeight + 40f;
 
-			randomPosition = new Vector3(randomPositionX, randomPositionY, randomPositionZ);
+			int iterations = 0;
+			bool setRandomPosition = false;
+
+			while(!setRandomPosition){
+				iterations++;
+				randomPositionX = Random.Range(terrainLeft, terrainRight);
+				randomPositionZ = Random.Range(terrainBottom, terrainTop);
+				if(Physics.Raycast(new Vector3(randomPositionX, 9999f, randomPositionZ), Vector3.down, out hit, Mathf.Infinity, terrain.layer)){
+					terrainHeight = hit.point.y;
+				}
+				randomPositionY = terrainHeight + 40f;
+
+				randomPosition = new Vector3(randomPositionX, randomPositionY, randomPositionZ);
+
+				ChangeDroppedGun [] guns =  FindObjectsOfType<ChangeDroppedGun>();
+
+				float nearDistance = 5000f;
+			
+				foreach (ChangeDroppedGun gun in guns)
+				{
+					float gunDistance = Vector3.Distance (gun.transform.position, randomPosition);
+					if(gunDistance < nearDistance)
+						nearDistance = gunDistance;
+				}
+
+				if(nearDistance > 30 || iterations > 20)
+					setRandomPosition = true;
+			}
 
 			float percent = Random.Range(0.0f, 1.0f);
 
-			
+			/*
 			if(percent <= 0.33f)
 				instanceData[0] = 5;
 			else if(percent <= 0.66f){
 				instanceData[0] = 4;
 			} else {
 				instanceData[0] = 3;
-			}
+			}*/
 
 			/*
 			50% de pistola
@@ -99,7 +120,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			5% de sniper
 			0% de shotgun
 			*/
-			/*
+			
 			if(percent <= 0.5f){
 				instanceData[0] = 1;
 			} else if(percent <= 0.75f){
@@ -111,12 +132,13 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			}else{
 				instanceData[0] = 5;
 			}
-			*/
+
 			PhotonNetwork.Instantiate("DroppedGun", randomPosition, Quaternion.identity,0,instanceData);
 
 		} while ( i < amount);
 
 		// INSTANCIA A BOMBA //
+		/*
 		randomPositionX = Random.Range(terrainLeft, terrainRight);
 		randomPositionZ = Random.Range(terrainBottom, terrainTop);
 		if(Physics.Raycast(new Vector3(randomPositionX, 9999f, randomPositionZ), Vector3.down, out hit, Mathf.Infinity, terrain.layer)){
@@ -127,6 +149,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
 		randomPosition = new Vector3(randomPositionX, randomPositionY, randomPositionZ);
 
 		PhotonNetwork.Instantiate("Bomb", randomPosition, Quaternion.identity,0,instanceData);
+		*/
 
 	}
 

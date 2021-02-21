@@ -50,7 +50,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 	{
 		MenuManager.Instance.OpenMenu("title");
 		Debug.Log("Joined Lobby");
-		if(string.IsNullOrEmpty(PhotonNetwork.NickName))
+		if(string.IsNullOrEmpty(PhotonNetwork.NickName) || (PhotonNetwork.NickName != null && PhotonNetwork.NickName.Length < 2))
 			PhotonNetwork.NickName = randomNick[Random.Range(0, randomNick.Length-1)] + Random.Range(0, 1000).ToString("000");
 	}
 

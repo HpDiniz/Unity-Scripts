@@ -23,7 +23,6 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
 
         audioIndex = (int) instantiationData[1];
 
-
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
         
         foreach (PlayerMovement player in players)
