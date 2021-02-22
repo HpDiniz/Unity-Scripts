@@ -16,6 +16,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float reloadingTime = 1.5f;
     private float nextTimeToFire = 0f;
     private float nextTimeToScream = 0f;
+    private float nextTimeToChangeGuns = 0f;
 
     private PlayerSounds playerSound;
 
@@ -39,7 +40,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     ChangeDroppedGun nearDroppedWeapon;
     Transform nearTransformDroppedWeapon;
 
-    public int health = 200;
+    public int health = 100;
 
     [HideInInspector] public ParticleSystem muzzleFlash;
     [HideInInspector] public GameObject impactEffect;
@@ -295,7 +296,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(waitingForSpawn)
             return;
         
-        if(killCounter >= 30){
+        if(killCounter >= 20){
             waitingForSpawn = true;
             PV.RPC("CallMethodForAllPlayers",RpcTarget.All,1,this.Nickname);
         }
@@ -380,17 +381,19 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
        
         if(Input.GetKeyDown(KeyCode.Alpha1)){
-            if(actualWeapon == 1 || primaryGun == null) return;
-            actualWeapon = 1;
-            ChangeRoutine(ChangeGuns(primaryGun));
-            //bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
+            if(Time.time >= nextTimeToChangeGuns){
+                if(actualWeapon == 1 || primaryGun == null) return;
+                actualWeapon = 1;
+                ChangeRoutine(ChangeGuns(primaryGun));
+                return;
+            }
         } else if(Input.GetKeyDown(KeyCode.Alpha2)){
-            if(actualWeapon == 2 || secondaryGun == null) return;
-            actualWeapon = 2;
-            ChangeRoutine(ChangeGuns(secondaryGun));
-            //bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
-            return;
+            if(Time.time >= nextTimeToChangeGuns){
+                if(actualWeapon == 2 || secondaryGun == null) return;
+                actualWeapon = 2;
+                ChangeRoutine(ChangeGuns(secondaryGun));
+                return;
+            }
         } else if(Input.GetKeyDown(KeyCode.Alpha3)){
             if(actualWeapon == 3) return;
             actualWeapon = 3;
@@ -398,6 +401,37 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             bulletsText.text = "";
             return;
         } 
+
+
+        if(Input.GetAxis("Mouse ScrollWheel") != 0){
+
+            if(Time.time >= nextTimeToChangeGuns){
+                
+                if(secondaryGun != null && secondaryGun != null){
+                    
+                    int targetGun = 0;
+
+                    if(actualWeapon == 2){
+                        actualWeapon = 1;
+                        targetGun = primaryGun.gunIndex;
+                        ChangeRoutine(ChangeGuns(primaryGun));
+                    } else {
+                        actualWeapon = 2;
+                        targetGun = secondaryGun.gunIndex;
+                        ChangeRoutine(ChangeGuns(secondaryGun));
+                    }
+                
+                    if(targetGun == 4 || targetGun == 5)
+                        nextTimeToChangeGuns = Time.time + 0.8f;
+                    else if(targetGun == 2)
+                        nextTimeToChangeGuns = Time.time + 0.4f;
+                    else  
+                        nextTimeToChangeGuns = Time.time + 0.1f;
+
+                }
+            }
+            
+        }
 
         this.lifeText.text = health.ToString();
 
@@ -523,6 +557,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             isChangingGuns = true;
 
+            nextTimeToFire = Time.time + (weapon.fireRate/3);
+
             if(primaryGun != null || secondaryGun != null){
 
                 bool wasAiming = ((CurrentAnimation() == "ZoomIdle") || (isAiming == true));
@@ -539,10 +575,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(gunIndex > 0)
                     this.handAnimator[gunIndex].SetTrigger("TakeOut");
 
-                if((gunIndex == 4 || gunIndex == 5) && wasAiming)
+                if((gunIndex == 4 || gunIndex == 5) && wasAiming){
                     yield return new WaitForSeconds(0.6f);
-                else
+                }else{
                     yield return new WaitForSeconds(0.1f);
+                }
 
             }
 
@@ -578,7 +615,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(bulletsText){
                 bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
             }
-            
+
             isChangingGuns = false;
         }
     }
@@ -595,8 +632,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         if(!isGrounded)
             return;
-
-            Debug.Log(CurrentAnimation());
 
         if(isCrounching){
             playerSound.step_Distance = crouch_Step_Distance;
@@ -878,8 +913,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 amount = gunIndex == 5 ? (int)(damage * 1.25) : (int)((damage - (hit.distance)/50) * 1.25);
             else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
                 amount = gunIndex == 5 ? (int)(damage) : (int)((damage - (hit.distance)/50));
-            else if(hit.transform.tag == "Enemy")
+            else if(hit.transform.tag == "Enemy"){
+                MonsterStats stats = hit.transform.gameObject.GetComponent<MonsterStats>();
+                stats.hits++;
                 hitMarker.BodyHit();
+            }
         
             if(amount != 0 ){
                 if(hit.transform.gameObject){
@@ -1095,7 +1133,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         this.primaryGun = null;
         this.secondaryGun = null;
-        this.health = 200;
+        this.health = 100;
         
         this.waitingForSpawn = false;
 
@@ -1143,7 +1181,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             object[] instanceData = new object[3];
             instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
-            instanceData[2] = 200;
+            instanceData[2] = 100;
             PV.RPC("TakeDamage",RpcTarget.All,instanceData);
         } else if(other.tag == "NoGuns")
         {
@@ -1276,14 +1314,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             willScream = 27;
         else if(Input.GetKeyDown(KeyCode.Alpha6))
             willScream = 28;
-        else if(Input.GetKeyDown(KeyCode.Alpha7))
-            willScream = 29;
-        else if(Input.GetKeyDown(KeyCode.Alpha8))
-            willScream = 30;
 
         if(willScream > 0){
             if(Time.time >= nextTimeToScream){
-                nextTimeToScream = Time.time + 3.0f;
+                if(willScream > 27)
+                    nextTimeToScream = Time.time + 7.0f;
+                else
+                    nextTimeToScream = Time.time + 3.0f;
     
                 object[] instanceData = new object[2];
                 instanceData[0] = this.PV.InstantiationId;
@@ -1355,7 +1392,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.sprint_Step_Distance = 0.38f;
         this.crouch_Step_Distance = 0.54f;
 
-        this.health = 200;
+        this.health = 100;
 
         this.nextTimeToFire = 0f;
         this.gunIndex = 0;
@@ -1387,7 +1424,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.primaryGun = null;
         this.secondaryGun = null;
         this.velocity.y = -2f;
-        this.health = 200;
+        this.health = 100;
         this.speed = 5.5f;
 
         object[] instanceData = new object[3];

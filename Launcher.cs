@@ -25,7 +25,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 
 	void Awake()
 	{
-		Instance = this;//Nickname
+		Instance = this;
 	}
 
 	void Start()
@@ -97,12 +97,21 @@ public class Launcher : MonoBehaviourPunCallbacks
 	}
 
 	public void StartGame()
-	{
+	{	
+		GameObject [] allButtons = GameObject.FindGameObjectsWithTag("Button");
+
+		for(int i=0; i< allButtons.Length; i++){
+			Button button = allButtons[i].GetComponent<Button>();
+			TMP_Text buttonText = button.GetComponentInChildren<TMP_Text>();
+			button.interactable = false;
+			if(allButtons[i].name == "StartButton")
+				buttonText.text = "Loading...";
+		}
 		PhotonNetwork.LoadLevel(1);
 	}
 
 	public void LeaveRoom()
-	{
+	{	
 		PhotonNetwork.LeaveRoom();
 		MenuManager.Instance.OpenMenu("loading");
 	}

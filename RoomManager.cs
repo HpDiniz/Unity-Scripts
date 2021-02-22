@@ -113,21 +113,21 @@ public class RoomManager : MonoBehaviourPunCallbacks
 			}*/
 
 			/*
-			50% de pistola
-			25% de submachinegun
-			15% de assaultRifle
-			5% de lightmachine
-			5% de sniper
+			30% de pistola
+			30% de submachinegun
+			25% de assaultRifle
+			15% de lightmachine
+			10% de sniper
 			0% de shotgun
 			*/
 			
-			if(percent <= 0.5f){
+			if(percent <= 0.3f){
 				instanceData[0] = 1;
-			} else if(percent <= 0.75f){
+			} else if(percent <= 0.6f){
 				instanceData[0] = 2;
-			} else if(percent <= 0.90f){
+			} else if(percent <= 0.75f){
 				instanceData[0] = 3;
-			} else if(percent <= 0.95f){
+			} else if(percent <= 0.90f){
 				instanceData[0] = 4;
 			}else{
 				instanceData[0] = 5;

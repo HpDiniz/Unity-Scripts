@@ -36,7 +36,11 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
     void Start()
     {   
         audios[audioIndex].Play(0);
-        Destroy(this.gameObject,4f);
+
+        if(audioIndex > 27)
+            Destroy(this.gameObject,7f);
+        else
+            Destroy(this.gameObject,3f);
     }
 
     void Update()
