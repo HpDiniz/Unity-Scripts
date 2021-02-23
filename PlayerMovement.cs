@@ -17,6 +17,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float nextTimeToFire = 0f;
     private float nextTimeToScream = 0f;
     private float nextTimeToChangeGuns = 0f;
+    private float lastTimeIShooted = 0f;
 
     private PlayerSounds playerSound;
 
@@ -25,6 +26,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float crouch_Step_Distance = 0.54f;
 
     string winner = "";
+    private float vRecoil = 0.4f;
+    private float hRecoil = 0.4f;
 
     [HideInInspector] public bool resetGame = false;
     [HideInInspector] public float walkMagnitude;
@@ -561,7 +564,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             if(primaryGun != null || secondaryGun != null){
 
-                bool wasAiming = ((CurrentAnimation() == "ZoomIdle") || (isAiming == true));
+                //bool wasAiming = ((CurrentAnimation() == "ZoomIdle") || (isAiming == true));
 
                 this.handAnimator[gunIndex].SetInteger("Reload", 0);
                 this.handAnimator[gunIndex].SetBool("Sight", false);
@@ -575,7 +578,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(gunIndex > 0)
                     this.handAnimator[gunIndex].SetTrigger("TakeOut");
 
-                if((gunIndex == 4 || gunIndex == 5) && wasAiming){
+                if((gunIndex == 4 || gunIndex == 5)){
                     yield return new WaitForSeconds(0.6f);
                 }else{
                     yield return new WaitForSeconds(0.1f);
@@ -753,8 +756,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         }
                         Shoot();
                         return;
+                    } else {
+                        mouseLook.AddRecoil(0,0);
                     }
                 }else{
+                    mouseLook.AddRecoil(0,0);
                     if(gunIndex != 5)
                         handAnimator[gunIndex].SetInteger("Fire", 0);
                     if(totalAmmo > 0){
@@ -766,8 +772,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         }
                     }
                 }  
-
             }else{
+                mouseLook.AddRecoil(0,0);
                 if(gunIndex != 5)
                     handAnimator[gunIndex].SetInteger("Fire", 0);
                 
@@ -799,6 +805,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator Reload()
     {   
+        mouseLook.AddRecoil(0,0);
         isAiming = false;
         handAnimator[gunIndex].SetBool("Sight", false);
         /*if(currentAmmo <= 0)
@@ -875,7 +882,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {  
         int killCounterBefore = this.killCounter;
         shootingAnim = true;
-        if(!isAiming && CurrentAnimation() == "Fire")
+        if(CurrentAnimation() == "Fire")
             muzzleFlash.Play();
 
         currentAmmo--;
@@ -938,16 +945,30 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 PhotonNetwork.Instantiate("HitParticles",hit.point, Quaternion.LookRotation(hit.normal));
             }
         }
-
+        
         shootingAnim = false;
 
         if(gunIndex == 5){
             RemoveScope();
             isAiming = false;
+            mouseLook.AddRecoil(0,0);
+        } else {
+            
+            float lastTime = lastTimeIShooted + fireRate + (fireRate/3);
+
+            if(Time.time < lastTime){
+                float h = Random.Range(-hRecoil,hRecoil);
+                float v = Random.Range(-vRecoil,vRecoil);
+                mouseLook.AddRecoil(v,hRecoil);
+            } else {
+                mouseLook.AddRecoil(0,0);
+            }
         }
 
         if(this.killCounter != killCounterBefore)
             CheckKillStreak();
+
+        lastTimeIShooted = Time.time;
 
         bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
     }

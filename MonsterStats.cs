@@ -42,6 +42,5 @@ public class MonsterStats : MonoBehaviour
             hits++;
             
         }
-        Debug.Log(hits);
     }
 }

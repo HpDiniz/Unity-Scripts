@@ -7,6 +7,9 @@ public class MouseLook : MonoBehaviour
     public float clampDegrees = 75f;
     public float mouseSensitivity = 200f;
 
+    private float vRecoil;
+    private float hRecoil;
+
     Camera fpsCam;
     public Transform playerBody;
 
@@ -24,8 +27,8 @@ public class MouseLook : MonoBehaviour
     void Update()
     {   
 
-        float mouseX = Input.GetAxis("Mouse X") * (fpsCam.fieldOfView/60 * mouseSensitivity) * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * (fpsCam.fieldOfView/60 * mouseSensitivity) * Time.deltaTime;
+        float mouseX = Input.GetAxis("Mouse X") * (fpsCam.fieldOfView/60 * mouseSensitivity) * Time.deltaTime + vRecoil;
+        float mouseY = Input.GetAxis("Mouse Y") * (fpsCam.fieldOfView/60 * mouseSensitivity) * Time.deltaTime + hRecoil;
 
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -clampDegrees, clampDegrees);
@@ -51,5 +54,11 @@ public class MouseLook : MonoBehaviour
         else if(mouseSensitivity > 500f)
             mouseSensitivity = 500f;
             
+    }
+
+    public void AddRecoil(float v, float h)
+    {
+        vRecoil = v;
+        hRecoil = h;
     }
 }
