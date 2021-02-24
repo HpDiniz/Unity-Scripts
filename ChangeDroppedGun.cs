@@ -9,14 +9,12 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
     public int currentGunIndex = 4;
     public WeaponStats currentWeapon;
     [HideInInspector] public PhotonView PV;
+    public Transform gunIcon;
 
     public void OnPhotonInstantiate(PhotonMessageInfo info)
     {   
-        
         object[] instantiationData = info.photonView.InstantiationData;
-
         currentGunIndex = (int)instantiationData[0];
-        
     }
 
     void Awake()
@@ -36,6 +34,7 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
             }else
                 weapons[i].gameObject.SetActive(false);
         }
+        StartCoroutine(MoveSphere());
     }
 
     public void DisableGun()
@@ -47,6 +46,7 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
     {   
         WeaponStats oldWeapon = null;
         WeaponStats newWeapon = currentWeapon;
+        gunIcon.position = currentWeapon.transform.position;
 
         for (int i = 0; i < weapons.Length; i++)
         {
@@ -61,7 +61,6 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
         }
 
         if(oldWeapon == null || oldGunIndex <= 0){
-            //DisableGun();
             return newWeapon;
         }
 
@@ -76,13 +75,22 @@ public class ChangeDroppedGun : MonoBehaviourPun, IPunInstantiateMagicCallback
             }
         }
 
-
+        gunIcon.position = currentWeapon.transform.position;
         currentGunIndex = oldWeapon.gunIndex;
         currentWeapon = oldWeapon;
-        
+        StartCoroutine(MoveSphere());
         
         return newWeapon;
         
     }
+
+    IEnumerator MoveSphere()
+    {   
+        for (int i = 0; i < 20; i++)
+        {
+            gunIcon.position = currentWeapon.transform.position;
+            yield return new WaitForSeconds(0.25f);
+        }
+    } 
 
 }

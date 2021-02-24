@@ -564,7 +564,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             if(primaryGun != null || secondaryGun != null){
 
-                //bool wasAiming = ((CurrentAnimation() == "ZoomIdle") || (isAiming == true));
+                bool wasAiming = ((CurrentAnimation() == "ZoomIdle") || (isAiming == true));
 
                 this.handAnimator[gunIndex].SetInteger("Reload", 0);
                 this.handAnimator[gunIndex].SetBool("Sight", false);
@@ -578,7 +578,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(gunIndex > 0)
                     this.handAnimator[gunIndex].SetTrigger("TakeOut");
 
-                if((gunIndex == 4 || gunIndex == 5)){
+                if((gunIndex == 4 || (gunIndex == 5 && wasAiming))){
                     yield return new WaitForSeconds(0.6f);
                 }else{
                     yield return new WaitForSeconds(0.1f);
@@ -600,10 +600,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     handWeapons[i].SetActive(false);
             }
 
-            RuntimeAnimatorController ac = handAnimator[gunIndex].runtimeAnimatorController;    //Get Animator controller
-            for(int i = 0; i<ac.animationClips.Length; i++)                 //For all animations
+            RuntimeAnimatorController ac = handAnimator[gunIndex].runtimeAnimatorController;
+            for(int i = 0; i<ac.animationClips.Length; i++)
             {
-                if(ac.animationClips[i].name == "Reload")        //If it has the same name as your clip
+                if(ac.animationClips[i].name == "Reload")
                 {
                     reloadingTime = ac.animationClips[i].length;
                 }
