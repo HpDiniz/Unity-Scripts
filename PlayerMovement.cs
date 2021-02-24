@@ -103,8 +103,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     HeadPosition headPosition;
     PlayerMovement playerWhoKilledMe;
 
+    [HideInInspector] public Camera miniMapCam;
     [HideInInspector] public Camera fpsCam;
     [HideInInspector] public Canvas canvas;
+    [HideInInspector] public RectTransform playerIcon;
     [HideInInspector] public MouseLook mouseLook;
     [HideInInspector] public CharacterController controller;
     [HideInInspector] public CanvasGroup aimPoint;
@@ -135,15 +137,28 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         mouseLook = GetComponentInChildren<MouseLook>();
 		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
-        canvas = GetComponentInChildren<Canvas>();
+        
         playerSound = GetComponent<PlayerSounds>();
 
+        Canvas [] canvasGroup = GetComponentsInChildren<Canvas>();
+        foreach (Canvas item in canvasGroup)
+        {
+            if(item.gameObject.name == "UI"){
+                canvas = item;
+            } else if(item.gameObject.name == "OnlyMap"){
+                playerIcon = item.GetComponentInChildren<RectTransform>();
+            }
+        }
+
         Camera [] Cameras = GetComponentsInChildren<Camera>();
-            
         foreach (Camera item in Cameras)
         {
             if(item.gameObject.name == "Main Camera"){
                 fpsCam = item;
+            } else if(item.gameObject.name == "ScopeCamera"){
+                weaponCamera = item.gameObject;
+            } else if(item.gameObject.name == "Minimap"){
+                miniMapCam = item;
             }
         }
 	}
@@ -187,15 +202,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     WeaponStats weasponStats = item.gameObject.GetComponent<WeaponStats>();
                     if(weasponStats.gunIndex == 0)
                         terciaryGun = weasponStats;
-                }
-            }
-
-            Camera [] Cameras = GetComponentsInChildren<Camera>();
-            
-            foreach (Camera item in Cameras)
-            {
-                if(item.gameObject.name == "ScopeCamera"){
-                    weaponCamera = item.gameObject;
                 }
             }
 
@@ -258,23 +264,32 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             rankingText.text = this.Nickname + " " + this.killCounter.ToString() + "/" + this.deathCounter.ToString();
             lifeText.text = health.ToString();
             headPosition.Invisible();
-
-            /*
-            for (int i = 0; i < ghostPosition.Length; i++)
-            {
-                ghostPosition[i].Invisible();
-            }
-            */
+            
+            playerIcon.localScale = new Vector3(1f,1f,1f);
+            Debug.Log(playerIcon.position);
         }
-        else
+        else{
+            Destroy(miniMapCam);
+			Destroy(fpsCam.gameObject);
+            Destroy(canvas.gameObject);
+            Destroy(mouseLook);
+            Destroy(fpsCam);
+			Destroy(controller);
+            
+            playerIcon.localScale = new Vector3(1f,1f,1f);
+		}
+
+        /*
 		{
-			Destroy(GetComponentInChildren<Camera>().gameObject);
-            Destroy(GetComponentInChildren<Canvas>().gameObject);
+			
+            //Destroy(weaponCamera);
             Destroy(mouseLook);
             Destroy(fpsCam);
 			Destroy(controller);
             Destroy(canvas);
-		}
+            
+        }
+        */
 
         resetGame = false;
         ChangeGhostGun();
@@ -880,6 +895,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void Shoot()
     {  
+        //this.playerIcon.localScale = new Vector3(0f,0f,0f);
         int killCounterBefore = this.killCounter;
         shootingAnim = true;
         if(CurrentAnimation() == "Fire")
