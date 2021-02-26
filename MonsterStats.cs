@@ -16,7 +16,7 @@ public class MonsterStats : MonoBehaviour
     // Update is called once per frame
     void Update()
     {   
-        if(hits > 0 && hits % 25 == 0){
+        if(hits > 0 && hits % 20 == 0){
 
             object[] instanceData = new object[1];
 			float percent = Random.Range(0.0f, 1.0f);
@@ -35,7 +35,7 @@ public class MonsterStats : MonoBehaviour
 
             Vector3 dropPosition = this.transform.position;
 
-            dropPosition = new Vector3(dropPosition.x + Random.Range(-4.0f, 4.0f), dropPosition.y+ 20f, dropPosition.z + Random.Range(-4.0f, 4.0f));
+            dropPosition = new Vector3(dropPosition.x + Random.Range(-4.0f, 4.0f), dropPosition.y+ 15f, dropPosition.z + Random.Range(-4.0f, 4.0f));
 
             PhotonNetwork.Instantiate("DroppedGun",dropPosition, Quaternion.identity,0,instanceData);
             percent = 0;

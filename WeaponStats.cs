@@ -11,6 +11,8 @@ public class WeaponStats : MonoBehaviour
     public float range;
     public int gunIndex;
     public string gunName;
+    public float verticalRecoil;
+    public float horizontalRecoil;
 
     [HideInInspector] public int maxAmmo;
     [HideInInspector] public int currentAmmo;

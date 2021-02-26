@@ -26,8 +26,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     private float crouch_Step_Distance = 0.54f;
 
     string winner = "";
-    private float vRecoil = 0.4f;
-    private float hRecoil = 0.4f;
+    private float vRecoil = 0f;
+    private float hRecoil = 0f;
 
     [HideInInspector] public bool resetGame = false;
     [HideInInspector] public float walkMagnitude;
@@ -72,6 +72,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int killCounter = 0;
     [HideInInspector] public int deathCounter = 0;
 
+    IEnumerator myIconRoutine;
     IEnumerator sensibilityRoutine;
     IEnumerator messageRoutine;
     IEnumerator actualRoutine;
@@ -91,6 +92,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public bool idleAnim = true;
     [HideInInspector] public bool shootingAnim = false;
 
+    Image killNormal;
+
     GameObject terrain;
     Terrain worldTerrain;
     
@@ -106,7 +109,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public Camera miniMapCam;
     [HideInInspector] public Camera fpsCam;
     [HideInInspector] public Canvas canvas;
-    [HideInInspector] public RectTransform playerIcon;
+    [HideInInspector] public Image playerIcon;
     [HideInInspector] public MouseLook mouseLook;
     [HideInInspector] public CharacterController controller;
     [HideInInspector] public CanvasGroup aimPoint;
@@ -146,7 +149,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             if(item.gameObject.name == "UI"){
                 canvas = item;
             } else if(item.gameObject.name == "OnlyMap"){
-                playerIcon = item.GetComponentInChildren<RectTransform>();
+                Image [] icons = item.GetComponentsInChildren<Image>();
+                foreach (Image img in icons)
+                {
+                    if(img.gameObject.name == "PlayerIcon"){
+                        playerIcon = img;
+                    } 
+                } 
             }
         }
 
@@ -236,6 +245,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     if(canvasImages[i].name == "SniperScope"){
                         sniperScope = canvasImages[i].gameObject;
                         sniperScope.SetActive(false);
+                    } else if(canvasImages[i].name == "Normal"){
+                        killNormal = canvasImages[i];
                     }
                 }
 
@@ -264,9 +275,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             rankingText.text = this.Nickname + " " + this.killCounter.ToString() + "/" + this.deathCounter.ToString();
             lifeText.text = health.ToString();
             headPosition.Invisible();
-            
-            playerIcon.localScale = new Vector3(1f,1f,1f);
-            Debug.Log(playerIcon.position);
         }
         else{
             Destroy(miniMapCam);
@@ -275,22 +283,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             Destroy(mouseLook);
             Destroy(fpsCam);
 			Destroy(controller);
-            
-            playerIcon.localScale = new Vector3(1f,1f,1f);
 		}
 
-        /*
-		{
-			
-            //Destroy(weaponCamera);
-            Destroy(mouseLook);
-            Destroy(fpsCam);
-			Destroy(controller);
-            Destroy(canvas);
-            
-        }
-        */
-
+        var tempColor = playerIcon.color;
+        tempColor.a = 0f;
+        playerIcon.color = tempColor;
+        
         resetGame = false;
         ChangeGhostGun();
         PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
@@ -627,6 +625,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             UpdateAmmo(weapon);
             damage = weapon.damage;
             fireRate = weapon.fireRate;
+
+            vRecoil = weapon.verticalRecoil;
+            hRecoil = weapon.horizontalRecoil;
             range = weapon.range;
             ChangeGhostGun();
 
@@ -893,9 +894,47 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         damageIndicator.CreateIndicator(position);
     }
 
+    IEnumerator FadeTo(Image sprite, float aValue, float aTime)
+    {
+        float alpha = sprite.color.a;
+
+        for (float t = 0.0f; t < 1.0f; t += Time.deltaTime / aTime)
+        {
+            Color newColor = new Color(1, 1, 1, Mathf.Lerp(alpha,aValue,t));
+            sprite.color = newColor;
+            
+            yield return null;
+        }
+    }
+    
+    [PunRPC]
+    void UpdatePlayerIcon(int playerId)
+    {
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+        
+        for (int i=0; i<players.Length; i++)
+        {   
+            if(players[i].PV.InstantiationId == playerId){
+                
+                if(players[i].myIconRoutine != null)
+                    StopCoroutine(players[i].myIconRoutine);
+                
+                var tempColor = players[i].playerIcon.color;
+                tempColor.a = 1f;
+                players[i].playerIcon.color = tempColor;
+
+                players[i].myIconRoutine = FadeTo(players[i].playerIcon,0f, 1.0f);
+                StartCoroutine(players[i].myIconRoutine);
+
+            }
+        }
+        
+    }
+
     void Shoot()
     {  
-        //this.playerIcon.localScale = new Vector3(0f,0f,0f);
+        PV.RPC("UpdatePlayerIcon",RpcTarget.OthersBuffered,this.PV.InstantiationId);
+
         int killCounterBefore = this.killCounter;
         shootingAnim = true;
         if(CurrentAnimation() == "Fire")
@@ -929,6 +968,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, range))
         {   
             int amount = 0;
+
+            Debug.Log(hit.transform.tag);
 
             if(hit.transform.tag == "PlayerHead")
                 amount = gunIndex == 5 ? (int)(damage * 2) : (int)((damage - (hit.distance)/50) * 2);
@@ -973,16 +1014,27 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             float lastTime = lastTimeIShooted + fireRate + (fireRate/3);
 
             if(Time.time < lastTime){
-                float h = Random.Range(-hRecoil,hRecoil);
-                float v = Random.Range(-vRecoil,vRecoil);
-                mouseLook.AddRecoil(v,hRecoil);
+                float vertical = Random.Range(-vRecoil,vRecoil);
+                mouseLook.AddRecoil(vertical,hRecoil);
             } else {
                 mouseLook.AddRecoil(0,0);
             }
         }
 
-        if(this.killCounter != killCounterBefore)
+        if(this.killCounter != killCounterBefore){
             CheckKillStreak();
+
+            if(this.myIconRoutine != null)
+                StopCoroutine(this.myIconRoutine);
+            
+            var tempColor = this.killNormal.color;
+            tempColor.a = 0.4f;
+            this.killNormal.color = tempColor;
+
+            this.myIconRoutine = FadeTo(this.killNormal,0f, 1.5f);
+            StartCoroutine(this.myIconRoutine);
+ 
+        }
 
         lastTimeIShooted = Time.time;
 
@@ -1007,10 +1059,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(messageRoutine != null)
             StopCoroutine(messageRoutine);
 
-        messageRoutine = ShowMessage(winner + " é o vencedor!",8f);
+        messageRoutine = ShowMessage(winner + " é o vencedor!",6f);
         StartCoroutine(messageRoutine);
 
-        yield return new WaitForSeconds(8f);
+        yield return new WaitForSeconds(6f);
 
         StartCoroutine(RestartGame());
     
@@ -1075,6 +1127,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator Respawn() 
     {   
+        sniperScope.SetActive(false);
+        weaponCamera.SetActive(true);
 
         if(playerWhoKilledMe != null && playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId){
             messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você",4f);
