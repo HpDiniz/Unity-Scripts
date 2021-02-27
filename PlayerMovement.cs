@@ -281,7 +281,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(fpsCam.gameObject);
             Destroy(canvas.gameObject);
             Destroy(mouseLook);
-            Destroy(fpsCam);
 			Destroy(controller);
 		}
 
@@ -1127,6 +1126,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator Respawn() 
     {   
+        object[] instanceData = new object[3];
+        instanceData[0] = gunIndex;
+
+        this.primaryGun = null;
+        this.secondaryGun = null;
+
         sniperScope.SetActive(false);
         weaponCamera.SetActive(true);
 
@@ -1140,17 +1145,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
         this.deathCounter++;
         this.killStreak = 0;
-
-        /*
-        if(rankingText)
-            rankingText.text = this.Nickname + " " + this.killCounter + "/" + this.deathCounter + "\n";
-        */
-
-        object[] instanceData = new object[3];
-
-        //PV.RPC("UpdateKD",RpcTarget.Others,this.PV.InstantiationId);
         
-        instanceData[0] = gunIndex;
         yield return new WaitForSeconds(0.1f);
         this.jumpingAnim = false;
         this.runningAnim = false;
@@ -1159,9 +1154,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.isReloading = false;
         this.idleAnim = true;
         this.velocity.y = -2f;
-
-        ChangeRoutine(ChangeGuns(this.terciaryGun));
-
         this.actualWeapon = 3;
         
         yield return new WaitForSeconds(0.1f);
@@ -1169,7 +1161,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             PhotonNetwork.Instantiate("DroppedGun",this.transform.position, Quaternion.identity,0,instanceData);
 
         bool setRandomPosition = false;
-
 
         float terrainLeft = worldTerrain.transform.position.x;
 		float terrainBottom = worldTerrain.transform.position.z;
@@ -1222,8 +1213,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         ChangeRoutine(ChangeGuns(this.terciaryGun));
         yield return new WaitForSeconds(0.4f);
         
-        this.primaryGun = null;
-        this.secondaryGun = null;
         this.health = 100;
         
         this.waitingForSpawn = false;
