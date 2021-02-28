@@ -79,6 +79,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator resetRoutine;
     Vector3 velocity;
 
+    bool insideLadder = false;
     bool isAiming = false;
     bool isReloading = false;
     bool isChangingGuns = false;
@@ -451,6 +452,30 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.lifeText.text = health.ToString();
 
         CheckSpeed();
+
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+
+        if(insideLadder){
+            if(Input.GetKey(KeyCode.W))
+            {   
+                DisableAnimations();
+                bodyAnimator.SetBool("Jump", true);
+                isGrounded = false;
+                velocity.y = 0f;
+                this.transform.position += Vector3.up / 20f;
+            } 
+            if(!isGrounded){
+                if(Input.GetKey(KeyCode.S))
+                {   
+                    DisableAnimations();
+                    bodyAnimator.SetBool("Jump", true);
+                    velocity.y = 0f;
+                    this.transform.position -= Vector3.up / 20f;
+                }
+                return;
+            }
+        }
+
         CheckHands();
         CheckScreams();
 
@@ -475,8 +500,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         fpsCam.transform.position = Vector3.Lerp(fpsCam.transform.position, new Vector3(fpsCam.transform.position.x,controller.transform.position.y + targetHeight/2 -0.1f,fpsCam.transform.position.z), 7.5f * Time.deltaTime);
 
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
@@ -488,15 +511,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(isGrounded && velocity.y <0)
         {   
-            /*
-            if(jumpingAnim){
-                object[] instanceData = new object[2];
-                instanceData[0] = this.PV.InstantiationId;
-                instanceData[1] = 25;
-
-                PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
-            }
-            */
             bodyAnimator.SetBool("Jump", false);
             jumpingAnim = false;
             velocity.y = -2f;
@@ -529,6 +543,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }else
                 ghostPosition[i].Invisible();
         }
+    }
+
+    void DisableAnimations()
+    {
+        handAnimator[gunIndex].SetFloat("Walk_magnitude", 0f);
+        handAnimator[gunIndex].SetBool("W_pressed", false);
+        handAnimator[gunIndex].SetInteger("Reload", 0);
+        handAnimator[gunIndex].SetBool("Sight", false);
+        handAnimator[gunIndex].SetBool("Run", false);
+        
+        if(gunIndex != 5)
+            handAnimator[gunIndex].SetInteger("Fire", 0);
     }
 
     [PunRPC]
@@ -715,7 +741,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CheckHands()
     {   
-        if(isChangingGuns)
+        if(isChangingGuns || insideLadder)
             return;
 
         if(gunIndex == 5 && Time.time < nextTimeToFire){
@@ -968,8 +994,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {   
             int amount = 0;
 
-            Debug.Log(hit.transform.tag);
-
             if(hit.transform.tag == "PlayerHead")
                 amount = gunIndex == 5 ? (int)(damage * 2) : (int)((damage - (hit.distance)/50) * 2);
             else if(hit.transform.tag == "PlayerTorso")
@@ -1149,6 +1173,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         yield return new WaitForSeconds(0.1f);
         this.jumpingAnim = false;
         this.runningAnim = false;
+        this.insideLadder = false;
         this.isAiming = false;
         this.isCrounching = false;
         this.isReloading = false;
@@ -1253,9 +1278,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(this.health <=0)
             return;
 
-        if(other.tag == "Bomb")
+        if(other.tag == "Stairs")
         {  
-
+            insideLadder = !insideLadder;
         } else if(other.tag == "Respawn")
         {  
             object[] instanceData = new object[3];
@@ -1267,6 +1292,26 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             noGuns = true;
         }
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if(!PV.IsMine)
+			return;
+        
+        if(other.tag == "DroppedWeapon")
+        {   
+            changeWeaponText.text = "";
+
+        }else if(other.tag == "Stairs")
+        {  
+            insideLadder = !insideLadder;
+        } 
+
+        if(other.tag == "NoGuns")
+        {
+            noGuns = false;
+        } 
     }
 
     [PunRPC]
@@ -1327,22 +1372,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }   
         }
         
-    }
-
-    void OnTriggerExit(Collider other)
-    {
-        if(!PV.IsMine)
-			return;
-        
-        if(other.tag == "DroppedWeapon")
-        {   
-            changeWeaponText.text = "";
-        }
-
-        if(other.tag == "NoGuns")
-        {
-            noGuns = false;
-        } 
     }
 
     [PunRPC]
