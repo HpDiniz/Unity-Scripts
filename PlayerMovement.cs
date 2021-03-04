@@ -318,6 +318,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
 
         if(this.health < 1){
+            
             this.health = 0;
             bulletsText.text = "";
             this.waitingForSpawn = true;
@@ -462,7 +463,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bodyAnimator.SetBool("Jump", true);
                 isGrounded = false;
                 velocity.y = 0f;
-                this.transform.position += Vector3.up / 20f;
+                this.transform.position += Vector3.up * 5f * Time.deltaTime;
             } 
             if(!isGrounded){
                 if(Input.GetKey(KeyCode.S))
@@ -470,7 +471,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     DisableAnimations();
                     bodyAnimator.SetBool("Jump", true);
                     velocity.y = 0f;
-                    this.transform.position -= Vector3.up / 20f;
+                    this.transform.position -= Vector3.up * 5f * Time.deltaTime;
                 }
                 return;
             }
@@ -516,7 +517,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             velocity.y = -2f;
         }
 
+        Vector3 inputVector = new Vector3( x, 0, z );
+        inputVector.Normalize();
+
         move = transform.right * x + transform.forward * z;
+        ///move = Vector3.ClampMagnitude(move, 1f);
+        
         controller.Move(move * speed * Time.deltaTime);
 
         CheckSensitivy();
@@ -615,9 +621,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 
                 if(gunIndex > 0)
                     this.handAnimator[gunIndex].SetTrigger("TakeOut");
-
-                if((gunIndex == 4 || (gunIndex == 5 && wasAiming))){
-                    yield return new WaitForSeconds(0.6f);
+                
+                if((gunIndex == 4 || gunIndex == 5)){
+                    yield return new WaitForSeconds(0.3f);
                 }else{
                     yield return new WaitForSeconds(0.1f);
                 }
@@ -632,6 +638,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             gunIndex = weapon.gunIndex;
             for (int i = 0; i < handWeapons.Count; i++)
             {   
+                if(gunIndex == 4 || gunIndex == 5){
+                    handWeapons[i].transform.position = new Vector3(handWeapons[6].transform.position.x,handWeapons[6].transform.position.y,handWeapons[6].transform.position.z);
+                }
                 if(i == gunIndex){
                     handWeapons[i].SetActive(true);
                 }else
@@ -986,8 +995,14 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(CurrentAnimation() == "ZoomIdle" || CurrentAnimation() == "ZoomFire" || (isAiming && gunIndex == 5)){
             targetPosition = fpsCam.transform.forward;
         }else{
+
             float magnitude;
-            magnitude = walkMagnitude > 0.1 ? 0.125f : 0.06f;
+            if(walkMagnitude > 0.1){
+                magnitude = isCrounching ? 0.6f : 0.12f;
+            } else {
+                magnitude = isCrounching ? 0.03f : 0.05f;
+            }
+
             targetPosition = new Vector3(fpsCam.transform.forward.x + Random.Range(-magnitude, magnitude),fpsCam.transform.forward.y + Random.Range(-magnitude, magnitude), fpsCam.transform.forward.z + Random.Range(-magnitude, magnitude));
         }
         if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, range))
@@ -1239,8 +1254,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         yield return new WaitForSeconds(0.4f);
         
         this.health = 100;
-        
         this.waitingForSpawn = false;
+
+        this.RemoveScope();
+        this.insideLadder = false;
 
         instanceData[0] = this.PV.InstantiationId;
         instanceData[1] = this.health;
