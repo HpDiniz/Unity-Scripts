@@ -12,11 +12,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 {   
     List<AudioSource> generalAudios = new List<AudioSource>();
 
-    private float meleeTime = 0.7f;
+    private float meleeTime = 0.5f;
     private float reloadingTime = 1.5f;
     private float nextTimeToFire = 0f;
     private float nextTimeToScream = 0f;
     private float nextTimeToChangeGuns = 0f;
+    private float nextTimeToMelee = 0f;
     private float lastTimeIShooted = 0f;
 
     private PlayerSounds playerSound;
@@ -28,7 +29,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     string winner = "";
     private float vRecoil = 0f;
     private float hRecoil = 0f;
-
+    
     [HideInInspector] public bool resetGame = false;
     [HideInInspector] public float walkMagnitude;
 
@@ -38,7 +39,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int totalAmmo;
     [HideInInspector] public int clipSize;
     [HideInInspector] public int damage;
-    [HideInInspector] public int currentAmmo;
+    public int currentAmmo;
 
     ChangeDroppedGun nearDroppedWeapon;
     Transform nearTransformDroppedWeapon;
@@ -53,6 +54,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int gunIndex = 0;
     
     [HideInInspector] public Animator bodyAnimator;
+    [HideInInspector] public Animator knifeAnimator;
     [HideInInspector] public WeaponStats primaryGun;
     [HideInInspector] public WeaponStats secondaryGun;
     [HideInInspector] public WeaponStats terciaryGun;
@@ -81,6 +83,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     bool insideLadder = false;
     bool isAiming = false;
+    bool isMeleeing = false;
     bool isReloading = false;
     bool isChangingGuns = false;
     [HideInInspector] public bool isGrounded;
@@ -477,20 +480,36 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             }
         }
 
-        CheckHands();
-        CheckScreams();
-
         float targetHeight;
-        if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
-        {
-            isCrounching = true;
-            bodyAnimator.SetBool("Crouch", true);
-            targetHeight = 1.0f;
-        } else {
+        if(Input.GetKeyDown(KeyCode.F)){
+            
+            if(noGuns || CurrentAnimation() == "Reload" || CurrentAnimation() == "Select")
+                return;
+
+            if(Time.time < nextTimeToMelee){
+                return;
+            }
+
             isCrounching = false;
             bodyAnimator.SetBool("Crouch", false);
             targetHeight = 1.9f;
+            
+            ChangeRoutine(MeleeAtack());
+        } else {
+            if(Input.GetKey(KeyCode.LeftControl) && isGrounded)
+            {
+                isCrounching = true;
+                bodyAnimator.SetBool("Crouch", true);
+                targetHeight = 1.0f;
+            } else {
+                isCrounching = false;
+                bodyAnimator.SetBool("Crouch", false);
+                targetHeight = 1.9f;
+            }
         }
+
+        CheckHands();
+        CheckScreams();
         
         if(Input.GetKey(KeyCode.W) && isGrounded)
         {
@@ -638,9 +657,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             gunIndex = weapon.gunIndex;
             for (int i = 0; i < handWeapons.Count; i++)
             {   
-                if(gunIndex == 4 || gunIndex == 5){
-                    handWeapons[i].transform.position = new Vector3(handWeapons[6].transform.position.x,handWeapons[6].transform.position.y,handWeapons[6].transform.position.z);
-                }
+                handWeapons[4].transform.position = new Vector3(handWeapons[6].transform.position.x,handWeapons[6].transform.position.y,handWeapons[6].transform.position.z);
+                handWeapons[5].transform.position = new Vector3(handWeapons[6].transform.position.x,handWeapons[6].transform.position.y,handWeapons[6].transform.position.z);
                 if(i == gunIndex){
                     handWeapons[i].SetActive(true);
                 }else
@@ -759,7 +777,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
 
         if(Input.GetKeyDown(KeyCode.R)){
-            if(noGuns || CurrentAnimation() == "Reload" || CurrentAnimation() == "Select" || actualWeapon == 3)
+            if(noGuns || CurrentAnimation() == "Reload" || CurrentAnimation() == "Select" || actualWeapon == 3 || isMeleeing)
                 return;
             if(totalAmmo > 0){
                 if(clipSize != currentAmmo && isReloading == false){
@@ -774,7 +792,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 return;
 
             if(Input.GetButtonDown("Fire2")){
-                if(gunIndex == 0)
+                if(gunIndex == 0 || isMeleeing)
                     return;
 
                 isAiming = !isAiming;
@@ -788,7 +806,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
             if(Input.GetButton("Fire1"))
             {   
-                if(noGuns || actualWeapon == 3)
+                if(noGuns || actualWeapon == 3 || isMeleeing)
                     return;
                 if(currentAmmo > 0){
                     if(CurrentAnimation() == "Run")
@@ -827,7 +845,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 if(gunIndex != 5)
                     handAnimator[gunIndex].SetInteger("Fire", 0);
                 
-                if(isAiming || isCrounching || CurrentAnimation() == "ZoomFire" || CurrentAnimation() == "Fire"){
+                if(isAiming || isMeleeing || isCrounching || CurrentAnimation() == "ZoomFire" || CurrentAnimation() == "Fire"){
                     return;
                 }
                 if(Input.GetButton("Fire3") && isGrounded){
@@ -898,21 +916,82 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         isReloading = false;
     }
 
-    IEnumerator Melee()
+    IEnumerator MeleeAtack()
     {   
-        
-        //handAnimator[gunIndex].SetBool("Melee", true);
+        isMeleeing = true;
+        nextTimeToMelee = Time.time + (meleeTime * 2);
 
+        int killCounterBefore = this.killCounter;
+        shootingAnim = false;
+
+        bodyAnimator.SetTrigger("Melee");
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = 2;
+        instanceData[1] = 0;
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         yield return new WaitForSeconds(meleeTime);
+        
+        RaycastHit hit;
 
-        //handAnimator[gunIndex].SetBool("Melee", false);
+        Vector3 targetPosition = fpsCam.transform.forward;
+        
+        if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, 4f))
+        {   
+            int amount = 0;
 
-        yield return new WaitForSeconds(0.25f);
+            if(hit.transform.tag == "PlayerHead")
+                amount = 100;
+            else if(hit.transform.tag == "PlayerTorso")
+                amount = 80;
+            else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
+                amount = 60;
+            else if(hit.transform.tag == "Enemy"){
+                MonsterStats stats = hit.transform.gameObject.GetComponent<MonsterStats>();
+                stats.hits++;
+                hitMarker.BodyHit();
+            }
+        
+            if(amount != 0 ){
+                if(hit.transform.gameObject){
 
+                    PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
+
+                    if(target != null && target.health > 0){
+
+                        if(target.PV.InstantiationId != this.PV.InstantiationId){
+                            if(hit.transform.tag == "PlayerHead")
+                                hitMarker.HeadshotHit();
+                            else
+                                hitMarker.BodyHit();
+                            
+                            instanceData[1] = target.PV.InstantiationId;
+                            instanceData[2] = amount;
+                            PV.RPC("TakeDamage",RpcTarget.All,instanceData);
+                        }
+                    }
+                }
+            }
+        }
+
+        mouseLook.AddRecoil(0,0);
+
+        if(this.killCounter != killCounterBefore){
+            CheckKillStreak();
+
+            if(this.myIconRoutine != null)
+                StopCoroutine(this.myIconRoutine);
+            
+            var tempColor = this.killNormal.color;
+            tempColor.a = 0.4f;
+            this.killNormal.color = tempColor;
+
+            this.myIconRoutine = FadeTo(this.killNormal,0f, 1.5f);
+            StartCoroutine(this.myIconRoutine);
+ 
+        }
+
+        yield return new WaitForSeconds(meleeTime);
+        isMeleeing = false;
         
     }
 
@@ -1190,6 +1269,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.runningAnim = false;
         this.insideLadder = false;
         this.isAiming = false;
+        this.isMeleeing = false;
         this.isCrounching = false;
         this.isReloading = false;
         this.idleAnim = true;
@@ -1511,7 +1591,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator RestartGame()
     {   
         this.waitingForSpawn = true;
-        this.meleeTime = 0.7f;
         this.reloadingTime = 1.5f;
 
         this.walk_Step_Distance = 0.42f;
@@ -1532,6 +1611,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.jumpingAnim = false;
         this.runningAnim = false;
         this.isAiming = false;
+        this.isMeleeing = false;
         this.isCrounching = false;
         this.isReloading = false;
         this.idleAnim = true;
