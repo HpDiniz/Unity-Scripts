@@ -49,8 +49,8 @@ public class MouseLook : MonoBehaviour
             Application.Quit();
         }
         
-        if(mouseSensitivity < 50f)
-            mouseSensitivity = 50f;
+        if(mouseSensitivity < 1f)
+            mouseSensitivity = 1f;
         else if(mouseSensitivity > 500f)
             mouseSensitivity = 500f;
             

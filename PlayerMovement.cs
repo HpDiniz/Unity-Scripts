@@ -1209,6 +1209,21 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
 
     [PunRPC]
+    public void UpdateScoreMelee(int id)
+    {      
+        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+
+        for (int i=0; i<players.Length; i++)
+        {   
+            if(players[i].PV.InstantiationId.Equals(id)){
+                players[i].killCounter++;
+                players[i].killStreak++;
+            }
+        }
+
+    }
+
+    [PunRPC]
     public void CallMethodForAllPlayers(int method, string winner)
     {      
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
@@ -1242,6 +1257,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " " + deathMessage,4f);
         }else {
             messageRoutine = ShowMessage("Você se matou KKKK",4f);
+        }
+
+
+        if(deathMessage.Equals("matou você no chute")){
+            PV.RPC("UpdateScoreMelee",RpcTarget.All,playerWhoKilledMe.PV.InstantiationId);
+            PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
         }
 
         StartCoroutine(messageRoutine);
@@ -1451,26 +1472,29 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(whoReceivedDamage != null && whoCausedDamage != null)
         {   
+            whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
+
             if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId){
                 whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
                 if(deathMessage.Equals("matou você no chute")){
-                    if(whoCausedDamage.hitMarker != null)
+                    if(whoCausedDamage.hitMarker != null){
                         whoCausedDamage.hitMarker.BodyHit();
+                    }
                 }
             }
-
-            whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
             if(whoReceivedDamage.health <= 0){
                 
                 whoReceivedDamage.health = 0;
 
                 if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId){
-                    if(this.PV.InstantiationId == whoCausedDamage.PV.InstantiationId){
-                        this.killCounter++;
-                        this.killStreak++;
+                    if(!deathMessage.Equals("matou você no chute")){
+                        if(this.PV.InstantiationId == whoCausedDamage.PV.InstantiationId){
+                            this.killCounter++;
+                            this.killStreak++;
 
-                        PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+                            PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+                        }
                     }
                 }
                 
