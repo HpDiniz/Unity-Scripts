@@ -5,16 +5,14 @@ using UnityEngine;
 
 public class DamageIndicator : MonoBehaviour
 {   
-    private const float MaxTimer = 1f;
+    private const float MaxTimer = 0.8f;
     private float timer = MaxTimer;
     
     private CanvasGroup canvasGroup = null;
     protected CanvasGroup CanvasGroup
     {
         get
-        {   
-            canvasGroup = gameObject.AddComponent<CanvasGroup>();
-            
+        {
             if(canvasGroup == null)
             {
                 canvasGroup = GetComponent<CanvasGroup>();
@@ -23,7 +21,6 @@ public class DamageIndicator : MonoBehaviour
                     canvasGroup = gameObject.AddComponent<CanvasGroup>();
                 }
             }
-            
             return canvasGroup;
         }
     }
@@ -32,10 +29,7 @@ public class DamageIndicator : MonoBehaviour
     protected RectTransform Rect
     {
         get
-        {   
-            //Debug.Log("RectTransform");
-            rect = gameObject.AddComponent<RectTransform>();
-            
+        {
             if(rect == null)
             {
                 rect = GetComponent<RectTransform>();
@@ -44,11 +38,12 @@ public class DamageIndicator : MonoBehaviour
                     rect = gameObject.AddComponent<RectTransform>();
                 }
             }
-            
             return rect;
         }
     }
 
+    public Quaternion initialTargetRotation;
+    public Vector3 initialTargetPosition;
     public Transform Target { get; protected set; } = null;
     private Transform player = null;
 
@@ -61,10 +56,10 @@ public class DamageIndicator : MonoBehaviour
     public void Register(Transform target, Transform player, Action unRegister)
     {
         this.Target = target;
+        this.initialTargetPosition = target.position;
+        this.initialTargetRotation = target.rotation;
         this.player = player;
         this.unRegister = unRegister;
-
-        //Debug.Log("Register");
 
         StartCoroutine(RotateToTheTarget());
         StartTimer();
@@ -85,12 +80,13 @@ public class DamageIndicator : MonoBehaviour
 
     IEnumerator RotateToTheTarget()
     {
-        if(enabled)
+        while(enabled)
         {
             if(Target)
             {
-                tPos = Target.position;
-                tRot = Target.rotation;
+                //Se você quer que o indicator siga o player, acesse o position e rotation diretamento do Target (ex: target.position)
+                tPos = initialTargetPosition;
+                tRot = initialTargetRotation;
             }
             Vector3 direction = player.position - tPos;
 
@@ -116,7 +112,7 @@ public class DamageIndicator : MonoBehaviour
         while(timer > 0)
         {
             timer--;
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(1);
         }
         while(CanvasGroup.alpha > 0f)
         {

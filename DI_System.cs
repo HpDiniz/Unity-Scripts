@@ -13,27 +13,32 @@ public class DI_System : MonoBehaviour
     private Dictionary<Transform, DamageIndicator> Indicators = new Dictionary<Transform, DamageIndicator>();
 
     public Action<Transform> CreateIndicator = delegate {};
+    public Func<Transform, bool> CheckIfObjectInSight = null;
 
     private void OnEnable()
     {
         CreateIndicator += Create;
+        CheckIfObjectInSight += InSight;
     }
     private void OnDisable()
     {
         CreateIndicator -= Create;
+        CheckIfObjectInSight -= InSight;
     }
     void Create(Transform target)
-    {
+    {   
         if(Indicators.ContainsKey(target))
         {
             Indicators[target].Restart();
             return;
         }
-
         DamageIndicator newIndicator = Instantiate(indicatorPrefab, holder);
         newIndicator.Register(target,player,new Action( () => { Indicators.Remove(target); }));
 
         Indicators.Add(target, newIndicator);
     }
-
+    bool InSight(Transform t)
+    {
+        return true;
+    }
 }

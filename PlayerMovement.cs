@@ -1371,7 +1371,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         object[] instanceData = new object[3];
                         instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
                         instanceData[1] = this.PV.InstantiationId;
-                        instanceData[2] = 40;
+                        instanceData[2] = 35;
                         PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
                         
                     }
@@ -1449,15 +1449,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 
         }
 
-        if(deathMessage.Equals("matou você no chute")){
-            if(whoCausedDamage.hitMarker != null)
-                whoCausedDamage.hitMarker.BodyHit();
-        }
-
-        if(whoReceivedDamage)
+        if(whoReceivedDamage != null && whoCausedDamage != null)
         {   
-            if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
+            if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId){
                 whoReceivedDamage.CreateDamageIndicator(whoReceivedDamage.PV.InstantiationId, whoCausedDamage.transform);
+                if(deathMessage.Equals("matou você no chute")){
+                    if(whoCausedDamage.hitMarker != null)
+                        whoCausedDamage.hitMarker.BodyHit();
+                }
+            }
 
             whoReceivedDamage.health = whoReceivedDamage.health - (int)instantiationData[2];
 
