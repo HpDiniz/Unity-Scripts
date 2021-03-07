@@ -139,8 +139,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
 	void Awake()
 	{   
+        this.health = 5000;
         headPosition = GetComponentInChildren<HeadPosition>();
-        GameManager.players.Add(this);
         ghostPosition = GetComponentsInChildren<GhostPosition>();
         mouseLook = GetComponentInChildren<MouseLook>();
 		controller = GetComponent<CharacterController>();
@@ -180,7 +180,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void Start()
     {   
-        this.health = 5000;
         walkMagnitude = 0f;
         playerSound.step_Distance = walk_Step_Distance;
 
@@ -937,6 +936,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         isMeleeing = true;
         DisableAnimations();
+        bodyAnimator.SetBool("Run", false);
+        bodyAnimator.SetBool("Crouch", false);
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
@@ -971,11 +972,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
  
         }
 
+        yield return new WaitForSeconds(meleeTime/2);
         instanceData[1] = false;
         PV.RPC("UpdateMeleeStatus",RpcTarget.Others,instanceData);
-
-        yield return new WaitForSeconds(meleeTime/2);
-
         isMeleeing = false;
         
         
@@ -1366,15 +1365,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             playerWhoKilledMe = other.gameObject.GetComponentInParent<PlayerMovement>();
 
             if(playerWhoKilledMe != null){
-                if(playerWhoKilledMe.isMeleeing){
+                if(this.PV.InstantiationId != playerWhoKilledMe.PV.InstantiationId){
+                    if(playerWhoKilledMe.isMeleeing){
 
-                    object[] instanceData = new object[3];
-
-                    instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
-                    instanceData[1] = this.PV.InstantiationId;
-                    instanceData[2] = 40;
-                    PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
-                    
+                        object[] instanceData = new object[3];
+                        instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
+                        instanceData[1] = this.PV.InstantiationId;
+                        instanceData[2] = 40;
+                        PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
+                        
+                    }
                 }
             }
         }
@@ -1449,13 +1449,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 
         }
 
-        //Debug.Log(this.PV.InstantiationId + " - " + whoCausedDamage.PV.InstantiationId);
-        //if(this.PV.InstantiationId.Equals(whoCausedDamage.PV.InstantiationId)){
-            if(deathMessage.Equals("matou você no chute")){
-                if(whoCausedDamage.hitMarker != null)
-                    whoCausedDamage.hitMarker.BodyHit();
-            }
-        //}
+        if(deathMessage.Equals("matou você no chute")){
+            if(whoCausedDamage.hitMarker != null)
+                whoCausedDamage.hitMarker.BodyHit();
+        }
 
         if(whoReceivedDamage)
         {   
