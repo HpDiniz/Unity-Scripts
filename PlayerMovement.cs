@@ -12,7 +12,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 {   
     List<AudioSource> generalAudios = new List<AudioSource>();
 
-    private float meleeTime = 0.5f;
+    private float meleeTime = 1f;
     private float reloadingTime = 1.5f;
     private float nextTimeToFire = 0f;
     private float nextTimeToScream = 0f;
@@ -54,7 +54,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int gunIndex = 0;
     
     [HideInInspector] public Animator bodyAnimator;
-    [HideInInspector] public Animator knifeAnimator;
     [HideInInspector] public WeaponStats primaryGun;
     [HideInInspector] public WeaponStats secondaryGun;
     [HideInInspector] public WeaponStats terciaryGun;
@@ -62,6 +61,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public List<GameObject> handWeapons = new List<GameObject>();
     GhostPosition[] ghostPosition;
 
+    public Collider kickCollider;
     public Transform groundCheck;
     public LayerMask groundMask;
     
@@ -83,7 +83,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     bool insideLadder = false;
     bool isAiming = false;
-    bool isMeleeing = false;
+    public bool isMeleeing = false;
     bool isReloading = false;
     bool isChangingGuns = false;
     [HideInInspector] public bool isGrounded;
@@ -103,12 +103,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     Vector3 move;
     Transform heaven;
-    HitMarker hitMarker;
+    public HitMarker hitMarker;
     GameObject sniperScope;
     GameObject weaponCamera;
     DI_System damageIndicator;
     HeadPosition headPosition;
     PlayerMovement playerWhoKilledMe;
+    string deathMessage = "meteu bala em você";
 
     [HideInInspector] public Camera miniMapCam;
     [HideInInspector] public Camera fpsCam;
@@ -179,6 +180,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void Start()
     {   
+        this.health = 5000;
         walkMagnitude = 0f;
         playerSound.step_Distance = walk_Step_Distance;
 
@@ -204,6 +206,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(PV.IsMine)
 		{   
+            //Destroy(kickCollider);
+
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
             foreach (Animator item in Animators)
@@ -264,6 +268,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
             actualWeapon = 3;
 
+            RuntimeAnimatorController ac = bodyAnimator.runtimeAnimatorController;
+            for(int i = 0; i<ac.animationClips.Length; i++)
+            {
+                if(ac.animationClips[i].name == "Melee")
+                {
+                    meleeTime = (ac.animationClips[i].length);
+                }
+            }
+
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
             messageText.text =  "0 Kill Streak";
@@ -277,6 +290,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 bulletsText.text = currentAmmo.ToString() + "/" + totalAmmo.ToString();
 
             rankingText.text = this.Nickname + " " + this.killCounter.ToString() + "/" + this.deathCounter.ToString();
+    
             lifeText.text = health.ToString();
             headPosition.Invisible();
         }
@@ -288,6 +302,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 			Destroy(controller);
 		}
 
+        kickCollider.enabled = (false);
+
         var tempColor = playerIcon.color;
         tempColor.a = 0f;
         playerIcon.color = tempColor;
@@ -295,6 +311,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         resetGame = false;
         ChangeGhostGun();
         PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
+
+        this.health = 100;
+
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.health;
+        PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
     }
 
     // Update is called once per frame
@@ -311,7 +334,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
             return;
         }
-
+    
         if(waitingForSpawn)
             return;
         
@@ -580,12 +603,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         
         if(gunIndex != 5)
             handAnimator[gunIndex].SetInteger("Fire", 0);
-    }
-
-    [PunRPC]
-    void OnAnimationChange(string anim)
-    {
-        bodyAnimator.Play(anim);
     }
 
     void CheckSensitivy()
@@ -919,59 +936,23 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator MeleeAtack()
     {   
         isMeleeing = true;
-        nextTimeToMelee = Time.time + (meleeTime * 2);
+        DisableAnimations();
+
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = true;
+        PV.RPC("UpdateMeleeStatus",RpcTarget.Others,instanceData);
+
+        bodyAnimator.SetTrigger("Melee");
+
+        nextTimeToMelee = Time.time + (meleeTime * 1.5f);
 
         int killCounterBefore = this.killCounter;
         shootingAnim = false;
 
-        bodyAnimator.SetTrigger("Melee");
-        object[] instanceData = new object[3];
-        instanceData[0] = this.PV.InstantiationId;
         instanceData[1] = 0;
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
-        yield return new WaitForSeconds(meleeTime);
-        
-        RaycastHit hit;
-
-        Vector3 targetPosition = fpsCam.transform.forward;
-        
-        if (Physics.Raycast(fpsCam.transform.position, targetPosition, out hit, 4f))
-        {   
-            int amount = 0;
-
-            if(hit.transform.tag == "PlayerHead")
-                amount = 100;
-            else if(hit.transform.tag == "PlayerTorso")
-                amount = 80;
-            else if(hit.transform.tag == "PlayerLegs" || hit.transform.tag == "PlayerFeet")
-                amount = 60;
-            else if(hit.transform.tag == "Enemy"){
-                MonsterStats stats = hit.transform.gameObject.GetComponent<MonsterStats>();
-                stats.hits++;
-                hitMarker.BodyHit();
-            }
-        
-            if(amount != 0 ){
-                if(hit.transform.gameObject){
-
-                    PlayerMovement target = hit.transform.gameObject.GetComponentInParent<PlayerMovement>();
-
-                    if(target != null && target.health > 0){
-
-                        if(target.PV.InstantiationId != this.PV.InstantiationId){
-                            if(hit.transform.tag == "PlayerHead")
-                                hitMarker.HeadshotHit();
-                            else
-                                hitMarker.BodyHit();
-                            
-                            instanceData[1] = target.PV.InstantiationId;
-                            instanceData[2] = amount;
-                            PV.RPC("TakeDamage",RpcTarget.All,instanceData);
-                        }
-                    }
-                }
-            }
-        }
+        yield return new WaitForSeconds(meleeTime/2);
 
         mouseLook.AddRecoil(0,0);
 
@@ -990,8 +971,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
  
         }
 
-        yield return new WaitForSeconds(meleeTime);
+        instanceData[1] = false;
+        PV.RPC("UpdateMeleeStatus",RpcTarget.Others,instanceData);
+
+        yield return new WaitForSeconds(meleeTime/2);
+
         isMeleeing = false;
+        
         
     }
 
@@ -1112,7 +1098,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         
                         instanceData[1] = target.PV.InstantiationId;
                         instanceData[2] = amount;
-                        PV.RPC("TakeDamage",RpcTarget.All,instanceData);
+                        PV.RPC("TakeDamage",RpcTarget.All,instanceData,"meteu bala em você");
                     }
                 }
             } else {
@@ -1254,7 +1240,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         weaponCamera.SetActive(true);
 
         if(playerWhoKilledMe != null && playerWhoKilledMe.PV.InstantiationId != this.PV.InstantiationId){
-            messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " meteu bala em você",4f);
+            messageRoutine = ShowMessage(playerWhoKilledMe.Nickname + " " + deathMessage,4f);
         }else {
             messageRoutine = ShowMessage("Você se matou KKKK",4f);
         }
@@ -1375,6 +1361,24 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         if(this.health <=0)
             return;
 
+        if(other.tag == "Knife"){
+            
+            playerWhoKilledMe = other.gameObject.GetComponentInParent<PlayerMovement>();
+
+            if(playerWhoKilledMe != null){
+                if(playerWhoKilledMe.isMeleeing){
+
+                    object[] instanceData = new object[3];
+
+                    instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
+                    instanceData[1] = this.PV.InstantiationId;
+                    instanceData[2] = 40;
+                    PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
+                    
+                }
+            }
+        }
+
         if(other.tag == "Stairs")
         {  
             insideLadder = !insideLadder;
@@ -1384,7 +1388,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
             instanceData[2] = 100;
-            PV.RPC("TakeDamage",RpcTarget.All,instanceData);
+            PV.RPC("TakeDamage",RpcTarget.All,instanceData,"Você se matou KKKK");
         } else if(other.tag == "NoGuns")
         {
             noGuns = true;
@@ -1429,7 +1433,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
     
     [PunRPC]
-    public void TakeDamage(object[] instantiationData)
+    public void TakeDamage(object[] instantiationData, string deathMessage)
     {   
         PlayerMovement whoReceivedDamage = null;
         PlayerMovement whoCausedDamage = null;
@@ -1444,6 +1448,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 whoReceivedDamage = player;
                 
         }
+
+        //Debug.Log(this.PV.InstantiationId + " - " + whoCausedDamage.PV.InstantiationId);
+        //if(this.PV.InstantiationId.Equals(whoCausedDamage.PV.InstantiationId)){
+            if(deathMessage.Equals("matou você no chute")){
+                if(whoCausedDamage.hitMarker != null)
+                    whoCausedDamage.hitMarker.BodyHit();
+            }
+        //}
+
         if(whoReceivedDamage)
         {   
             if(whoReceivedDamage.PV.InstantiationId != whoCausedDamage.PV.InstantiationId)
@@ -1464,6 +1477,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                     }
                 }
                 
+                whoReceivedDamage.deathMessage = deathMessage;
                 whoReceivedDamage.playerWhoKilledMe = whoCausedDamage;
 
             }   
@@ -1494,6 +1508,21 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             if(players[i].PV.InstantiationId == (int)instantiationData[0]){
                 players[i].health = (int)instantiationData[1];
+                break;
+            } 
+        }
+    }
+
+    [PunRPC]
+    public void UpdateMeleeStatus(object[] instantiationData)
+    {   
+        PlayerMovement[] players = GetComponents<PlayerMovement>();
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            if(players[i].PV.InstantiationId == (int)instantiationData[0]){
+                players[i].isMeleeing = (bool)instantiationData[1];
+                players[i].kickCollider.enabled = ((bool)instantiationData[1]);
                 break;
             } 
         }

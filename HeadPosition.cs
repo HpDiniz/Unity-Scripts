@@ -9,4 +9,9 @@ public class HeadPosition : MonoBehaviour
     {
         this.gameObject.transform.localScale = new Vector3(0f,0f,0f);
     }
+
+    public void Visible()
+    {
+        this.gameObject.transform.localScale = new Vector3(1f,1f,1f);
+    }
 }
