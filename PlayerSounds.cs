@@ -80,8 +80,10 @@ public class PlayerSounds : MonoBehaviourPunCallbacks
 
                 while(newRandom == lastRandom)
                     newRandom = Random.Range(startIndex, startIndex+footStepLenght);
+
+                float volumeMultiplier = characterController.perks[2] ? 0.5f : 1f;
                 
-                PlaySound(newRandom);
+                PlaySound(newRandom,volumeMultiplier);
                 
                 lastRandom = newRandom;
 
@@ -99,12 +101,13 @@ public class PlayerSounds : MonoBehaviourPunCallbacks
         audioController[audioIndex].Play();
     }
 
-    public void PlaySound(int audioIndex)
+    public void PlaySound(int audioIndex, float volumeMultiplier)
     {   
 
         object[] instanceData = new object[3];
         instanceData[0] = characterController.PV.InstantiationId;
         instanceData[1] = audioIndex;
+        instanceData[2] = volumeMultiplier;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 

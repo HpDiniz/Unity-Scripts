@@ -9,6 +9,7 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
     PlayerMovement playerPosition;
     AudioSource [] audios;
     int audioIndex;
+    float volumeMultiplier = 1.0f;
 
     void Awake()
 	{   
@@ -22,6 +23,10 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
         object[] instantiationData = info.photonView.InstantiationData;
 
         audioIndex = (int) instantiationData[1];
+        if(instantiationData.Length > 1){
+            if(instantiationData[2] != null)
+                volumeMultiplier = (float) instantiationData[2];
+        }
 
         PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
         
@@ -35,6 +40,9 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
     // Start is called before the first frame update
     void Start()
     {   
+        audios[audioIndex].volume = audios[audioIndex].volume * volumeMultiplier;
+        audios[audioIndex].maxDistance = audios[audioIndex].maxDistance * volumeMultiplier;
+
         audios[audioIndex].Play(0);
 
         if(audioIndex > 27)

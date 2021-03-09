@@ -11,7 +11,7 @@ using TMPro;
 public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCallback
 {   
     List<AudioSource> generalAudios = new List<AudioSource>();
-
+    
     private float meleeTime = 1f;
     private float reloadingTime = 1.5f;
     private float nextTimeToFire = 0f;
@@ -81,6 +81,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator resetRoutine;
     Vector3 velocity;
 
+    public bool[] perks;
     bool insideLadder = false;
     bool isAiming = false;
     public bool isMeleeing = false;
@@ -205,7 +206,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(PV.IsMine)
 		{   
-            //Destroy(kickCollider);
+            perks = new bool[5]{ false,false,false,false,false }; 
 
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
@@ -686,7 +687,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             {
                 if(ac.animationClips[i].name == "Reload")
                 {
-                    reloadingTime = ac.animationClips[i].length;
+                    if(!this.perks[3]){
+                        reloadingTime = ac.animationClips[i].length;
+                        this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",1.0f);
+                    }else{
+                        reloadingTime = (ac.animationClips[i].length) * 0.5f;
+                        this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",2.0f);
+                    }
                 }
             }
 
@@ -788,7 +795,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             return;
 
         if(gunIndex == 5 && Time.time < nextTimeToFire){
-            //RemoveScope();
             return;
         }
 
@@ -904,7 +910,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
-        instanceData[1] = gunIndex+6;
+
+        if(gunIndex != 4 && perks[3])
+            instanceData[1] = 12;
+        else
+            instanceData[1] = gunIndex+6;
 
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
 
@@ -1031,7 +1041,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void Shoot()
     {  
-        PV.RPC("UpdatePlayerIcon",RpcTarget.OthersBuffered,this.PV.InstantiationId);
+        if(!perks[0])
+            PV.RPC("UpdatePlayerIcon",RpcTarget.OthersBuffered,this.PV.InstantiationId);
 
         int killCounterBefore = this.killCounter;
         shootingAnim = true;
@@ -1096,7 +1107,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                             hitMarker.BodyHit();
                         
                         instanceData[1] = target.PV.InstantiationId;
-                        instanceData[2] = amount;
+                        instanceData[2] = perks[4] ? (int)(amount * 1.25f) : amount;
                         PV.RPC("TakeDamage",RpcTarget.All,instanceData,"meteu bala em você");
                     }
                 }
@@ -1324,7 +1335,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }
             }
 
-            if(nearDistance >=100)
+            if(nearDistance <= 50f)//(nearDistance >= 100f)
                 setRandomPosition = true;
 
         }
@@ -1338,8 +1349,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         */
         ChangeRoutine(ChangeGuns(this.terciaryGun));
         yield return new WaitForSeconds(0.4f);
-        
+        ResetPerks();
         this.health = 100;
+        
         this.waitingForSpawn = false;
 
         this.RemoveScope();
@@ -1349,6 +1361,22 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         instanceData[1] = this.health;
         PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
         
+    }
+
+    void ResetPerks()
+    {
+        perks = new bool[5]{ false,false,false,false,false }; 
+
+        RuntimeAnimatorController ac = handAnimator[gunIndex].runtimeAnimatorController;
+        for(int i = 0; i<ac.animationClips.Length; i++)
+        {
+            if(ac.animationClips[i].name == "Reload")
+            {
+                reloadingTime = ac.animationClips[i].length;
+                this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",1.0f);
+            }
+        }
+
     }
 
     void OnTriggerStay(Collider other) 
@@ -1392,7 +1420,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         object[] instanceData = new object[3];
                         instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
                         instanceData[1] = this.PV.InstantiationId;
-                        instanceData[2] = 35;
+                        instanceData[2] =  perks[1] ? 120 : 40;
                         PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
                         
                     }
@@ -1408,7 +1436,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             object[] instanceData = new object[3];
             instanceData[0] = this.PV.InstantiationId;
             instanceData[1] = this.PV.InstantiationId;
-            instanceData[2] = 100;
+            instanceData[2] = 500;
             PV.RPC("TakeDamage",RpcTarget.All,instanceData,"Você se matou KKKK");
         } else if(other.tag == "NoGuns")
         {
@@ -1589,6 +1617,33 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CheckKillStreak()
     {   
+        if(this.killStreak % 3 == 0){
+            for(int i=0; i< this.killStreak/3; i++){
+                if(this.killStreak/3 <= perks.Length)
+                    perks[this.killStreak/3 - 1] = true;
+                messageRoutine = ShowMessage(this.killStreak.ToString() + " Kill Streak",4f);
+                StartCoroutine(messageRoutine);
+            }
+        }
+
+        if(perks[3]){
+            RuntimeAnimatorController ac = handAnimator[gunIndex].runtimeAnimatorController;
+            for(int i = 0; i<ac.animationClips.Length; i++)
+            {
+                if(ac.animationClips[i].name == "Reload")
+                {
+                    if(!this.perks[3]){
+                        reloadingTime = ac.animationClips[i].length;
+                        this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",1.0f);
+                    }else{
+                        reloadingTime = (ac.animationClips[i].length) * 0.5f;
+                        this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",2.0f);
+                    }
+                }
+            }
+        }
+
+        /*
         if(this.killStreak % 5 == 0){
             messageRoutine = ShowMessage(this.killStreak.ToString() + " Kill Streak",4f);
             StartCoroutine(messageRoutine);
@@ -1600,6 +1655,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 PV.RPC("playGeneralSound",RpcTarget.All,instanceData);
             }
         }
+        */
     }
 
     [PunRPC]
@@ -1682,6 +1738,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.velocity.y = -2f;
         this.health = 100;
         this.speed = 5.5f;
+
+        ResetPerks();
 
         object[] instanceData = new object[3];
         instanceData[0] = this.PV.InstantiationId;
