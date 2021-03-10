@@ -39,12 +39,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public int totalAmmo;
     [HideInInspector] public int clipSize;
     [HideInInspector] public int damage;
-    public int currentAmmo;
+    [HideInInspector] public int currentAmmo;
 
     ChangeDroppedGun nearDroppedWeapon;
     Transform nearTransformDroppedWeapon;
 
-    public int health = 100;
+    [HideInInspector] public int health = 100;
 
     [HideInInspector] public ParticleSystem muzzleFlash;
     [HideInInspector] public GameObject impactEffect;
@@ -81,10 +81,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     IEnumerator resetRoutine;
     Vector3 velocity;
 
-    public bool[] perks;
+    [HideInInspector] public bool[] perks;
     bool insideLadder = false;
     bool isAiming = false;
-    public bool isMeleeing = false;
+    [HideInInspector] public bool isMeleeing = false;
     bool isReloading = false;
     bool isChangingGuns = false;
     [HideInInspector] public bool isGrounded;
@@ -104,7 +104,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     Vector3 move;
     Transform heaven;
-    public HitMarker hitMarker;
+    [HideInInspector] public HitMarker hitMarker;
     GameObject sniperScope;
     GameObject weaponCamera;
     DI_System damageIndicator;
@@ -127,6 +127,11 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     [HideInInspector] public Text changeWeaponText;
     [HideInInspector] public TMP_Text messageText;
     [HideInInspector] public TMP_Text rankingText;
+
+    [HideInInspector] public TMP_Text streakText;
+    [HideInInspector] public TMP_Text perkText;
+    [HideInInspector] public TMP_Text helperText;
+    public GameObject helperScreen;
 
     [HideInInspector] public string Nickname;
 
@@ -206,6 +211,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(PV.IsMine)
 		{   
+            helperScreen.SetActive(false);
             perks = new bool[5]{ false,false,false,false,false }; 
 
             Animator [] Animators = GetComponentsInChildren<Animator>();
@@ -245,6 +251,12 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         messageText = canvasTMP[i];
                     else if(canvasTMP[i].name == "Ranking")
                         rankingText = canvasTMP[i];
+                    else if(canvasTMP[i].name == "Current Streak")
+                        streakText = canvasTMP[i];
+                    else if(canvasTMP[i].name == "Current perk")
+                        perkText = canvasTMP[i];
+                    else if(canvasTMP[i].name == "Helper")
+                        helperText = canvasTMP[i];
                 }
 
                 Image [] canvasImages = canvas.GetComponentsInChildren<Image>();
@@ -277,6 +289,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }
             }
 
+            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
+            perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 0f);
+            helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 0f);
+
             sensibilidadeText.text = "sens: " + mouseLook.mouseSensitivity.ToString();
             sensibilidadeText.color = new Color(sensibilidadeText.color.r, sensibilidadeText.color.g, sensibilidadeText.color.b, 0f);
             messageText.text =  "0 Kill Streak";
@@ -295,6 +311,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             headPosition.Invisible();
         }
         else{
+            Destroy(helperScreen);
             Destroy(miniMapCam);
 			Destroy(fpsCam.gameObject);
             Destroy(canvas.gameObject);
@@ -501,6 +518,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }
                 return;
             }
+        }
+
+        if(Input.GetKeyDown(KeyCode.Tab)){
+            rankingText.color = new Color(rankingText.color.r, rankingText.color.g, rankingText.color.b, 0f);
+            helperScreen.SetActive(true);
+        }
+        if(Input.GetKeyUp(KeyCode.Tab)){
+            rankingText.color = new Color(rankingText.color.r, rankingText.color.g, rankingText.color.b, 100f);
+            helperScreen.SetActive(false);
         }
 
         float targetHeight;
@@ -1013,6 +1039,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
             yield return null;
         }
+
+        sprite.color = new Color(1, 1, 1, 0f);
     }
     
     [PunRPC]
@@ -1577,6 +1605,42 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         }
     }
 
+    IEnumerator ShowKillStreak(int streak, float timing)
+    {   
+        if(streak == 3)
+            helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 100f);
+        
+        string [] perkName = new string[5]{"Ghost","Iron Legs","Dead Silence","Fast Hands","Heavy Bullets"}; 
+
+        streakText.text = streak.ToString() + " Kill Streak";
+        perkText.text = "Perk desbloqueado: " + perkName[streak/3-1];
+
+        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 100f);
+        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 100f);
+
+        yield return new WaitForSeconds(timing);
+        
+        for (float t = 0.0f; t < 1.0f; t += Time.deltaTime / timing)
+        {
+            Debug.Log(streakText.color.a);
+            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, Mathf.Lerp(100f,0f,t));
+            perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, Mathf.Lerp(100f,0f,t));
+            helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, Mathf.Lerp(100f,0f,t));
+            
+            yield return null;
+        }
+
+        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
+        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 0f);
+        helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 0f);
+        /*
+        yield return new WaitForSeconds(timing);
+        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
+        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 0f);
+        helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 0f);
+        */
+    }
+
     IEnumerator ShowMessage(string message, float timing) 
     {   
         if(messageText){
@@ -1621,7 +1685,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             for(int i=0; i< this.killStreak/3; i++){
                 if(this.killStreak/3 <= perks.Length)
                     perks[this.killStreak/3 - 1] = true;
-                messageRoutine = ShowMessage(this.killStreak.ToString() + " Kill Streak",4f);
+                messageRoutine = ShowKillStreak(this.killStreak,4f);
                 StartCoroutine(messageRoutine);
             }
         }
