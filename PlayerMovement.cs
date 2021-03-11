@@ -211,9 +211,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
         if(PV.IsMine)
 		{   
-            helperScreen.SetActive(false);
             perks = new bool[5]{ false,false,false,false,false }; 
 
+            helperScreen.SetActive(false);
+        
             Animator [] Animators = GetComponentsInChildren<Animator>();
             
             foreach (Animator item in Animators)
@@ -351,7 +352,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             
             return;
         }
-    
+
         if(waitingForSpawn)
             return;
         
@@ -970,6 +971,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     IEnumerator MeleeAtack()
     {   
+        int killCounterBefore = this.killCounter;
         isMeleeing = true;
         DisableAnimations();
         bodyAnimator.SetBool("Run", false);
@@ -983,8 +985,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         bodyAnimator.SetTrigger("Melee");
 
         nextTimeToMelee = Time.time + (meleeTime * 1.5f);
-
-        int killCounterBefore = this.killCounter;
         shootingAnim = false;
 
         instanceData[1] = 0;
@@ -992,10 +992,16 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         yield return new WaitForSeconds(meleeTime/2);
 
         mouseLook.AddRecoil(0,0);
+        yield return new WaitForSeconds(meleeTime/2);
+        instanceData[1] = false;
+        PV.RPC("UpdateMeleeStatus",RpcTarget.Others,instanceData);
+        isMeleeing = false;
+
+        yield return new WaitForSeconds(0.1f);
 
         if(this.killCounter != killCounterBefore){
+            
             CheckKillStreak();
-
             if(this.myIconRoutine != null)
                 StopCoroutine(this.myIconRoutine);
             
@@ -1006,13 +1012,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             this.myIconRoutine = FadeTo(this.killNormal,0f, 1.5f);
             StartCoroutine(this.myIconRoutine);
  
-        }
-
-        yield return new WaitForSeconds(meleeTime/2);
-        instanceData[1] = false;
-        PV.RPC("UpdateMeleeStatus",RpcTarget.Others,instanceData);
-        isMeleeing = false;
-        
+        }    
         
     }
 
@@ -1281,8 +1281,18 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     }
 
+    public void HideStreak()
+    {
+        this.helperScreen.SetActive(false);
+        this.streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
+        this.perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 0f);
+        this.helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 0f);
+    }
+
     IEnumerator Respawn() 
     {   
+        HideStreak();
+
         object[] instanceData = new object[3];
         instanceData[0] = gunIndex;
 
@@ -1386,6 +1396,10 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         this.insideLadder = false;
 
         instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = 0;
+
+        PV.RPC("UpdateKillStreak",RpcTarget.Others,instanceData);
+
         instanceData[1] = this.health;
         PV.RPC("UpdateLife",RpcTarget.Others,instanceData);
         
@@ -1404,7 +1418,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 this.handAnimator[gunIndex].SetFloat("ReloadMultiplier",1.0f);
             }
         }
-
+        
     }
 
     void OnTriggerStay(Collider other) 
@@ -1448,7 +1462,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         object[] instanceData = new object[3];
                         instanceData[0] = playerWhoKilledMe.PV.InstantiationId;
                         instanceData[1] = this.PV.InstantiationId;
-                        instanceData[2] =  perks[1] ? 120 : 40;
+                        instanceData[2] =  playerWhoKilledMe.killStreak > 5 ? 120 : 40;
                         PV.RPC("TakeDamage",RpcTarget.All,instanceData,"matou você no chute");
                         
                     }
@@ -1577,6 +1591,20 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     }
 
     [PunRPC]
+    public void UpdateKillStreak(object[] instantiationData)
+    {   
+        PlayerMovement[] players = GetComponents<PlayerMovement>();
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            if(players[i].PV.InstantiationId == (int)instantiationData[0]){
+                players[i].killStreak = (int)instantiationData[1];
+                break;
+            } 
+        }
+    }
+
+    [PunRPC]
     public void UpdateLife(object[] instantiationData)
     {   
         PlayerMovement[] players = GetComponents<PlayerMovement>();
@@ -1609,30 +1637,41 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     {   
         if(streak == 3)
             helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 100f);
+
+        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 100f);
+        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 100f);
         
         string [] perkName = new string[5]{"Ghost","Iron Legs","Dead Silence","Fast Hands","Heavy Bullets"}; 
 
         streakText.text = streak.ToString() + " Kill Streak";
         perkText.text = "Perk desbloqueado: " + perkName[streak/3-1];
 
-        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 100f);
-        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 100f);
+        playerSound.PlayOfflineSound(1,0.4f,0);
 
         yield return new WaitForSeconds(timing);
-        
-        for (float t = 0.0f; t < 1.0f; t += Time.deltaTime / timing)
-        {
-            Debug.Log(streakText.color.a);
-            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, Mathf.Lerp(100f,0f,t));
-            perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, Mathf.Lerp(100f,0f,t));
-            helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, Mathf.Lerp(100f,0f,t));
-            
-            yield return null;
-        }
 
         streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
         perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 0f);
         helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, 0f);
+
+        /*
+        streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 100f);
+        perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, 100f);
+
+        yield return new WaitForSeconds(timing);
+        */
+        /*
+        for (float t = 0.0f; t < 1.0f; t += Time.deltaTime / timing)
+        {
+            streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, Mathf.Lerp(100f,0f,t));
+            perkText.color = new Color(perkText.color.r, perkText.color.g, perkText.color.b, Mathf.Lerp(100f,0f,t));
+
+            if(streak == 3)
+                helperText.color =  new Color(helperText.color.r, helperText.color.g, helperText.color.b, Mathf.Lerp(100f,0f,t));
+            
+            yield return null;
+        }
+        */
         /*
         yield return new WaitForSeconds(timing);
         streakText.color = new Color(streakText.color.r, streakText.color.g, streakText.color.b, 0f);
@@ -1681,13 +1720,21 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 
     void CheckKillStreak()
     {   
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.killStreak;
+
+        PV.RPC("UpdateKillStreak",RpcTarget.Others,instanceData);
+
         if(this.killStreak % 3 == 0){
             for(int i=0; i< this.killStreak/3; i++){
-                if(this.killStreak/3 <= perks.Length)
-                    perks[this.killStreak/3 - 1] = true;
-                messageRoutine = ShowKillStreak(this.killStreak,4f);
-                StartCoroutine(messageRoutine);
+                if(i <= perks.Length){
+                    perks[i] = true;
+                }
             }
+
+            messageRoutine = ShowKillStreak(this.killStreak,5f);
+            StartCoroutine(messageRoutine);
         }
 
         if(perks[3]){
@@ -1760,6 +1807,8 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     
     IEnumerator RestartGame()
     {   
+        HideStreak();
+
         this.waitingForSpawn = true;
         this.reloadingTime = 1.5f;
 
