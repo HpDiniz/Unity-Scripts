@@ -28,12 +28,15 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
                 volumeMultiplier = (float) instantiationData[2];
         }
 
-        PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
-        
-        foreach (PlayerMovement player in players)
-        {
-            if(player.PV.InstantiationId == (int)instantiationData[0])
-                playerPosition = player;
+        if(instantiationData[0] != null){
+
+            PlayerMovement [] players =  FindObjectsOfType<PlayerMovement>();
+            
+            foreach (PlayerMovement player in players)
+            {
+                if(player.PV.InstantiationId == (int)instantiationData[0])
+                    playerPosition = player;
+            }
         }
         
     }
@@ -52,7 +55,8 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
     }
 
     void Update()
-    {
-        this.transform.position = playerPosition.transform.position;
+    {   
+        if(playerPosition != null)
+            this.transform.position = playerPosition.transform.position;
     }
 }

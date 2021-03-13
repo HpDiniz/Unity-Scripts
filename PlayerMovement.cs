@@ -627,6 +627,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         handAnimator[gunIndex].SetInteger("Reload", 0);
         handAnimator[gunIndex].SetBool("Sight", false);
         handAnimator[gunIndex].SetBool("Run", false);
+
+        isReloading = false;
+        isAiming = false;
         
         if(gunIndex != 5)
             handAnimator[gunIndex].SetInteger("Fire", 0);
@@ -991,6 +994,17 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         PhotonNetwork.Instantiate("Sounds",this.transform.position, Quaternion.identity,0,instanceData);
         yield return new WaitForSeconds(meleeTime/2);
 
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 1.2f);
+
+        for (int i = 0; i < colliders.Length; i++)
+        {   
+            if(colliders[i].gameObject.tag.Equals("Enemy")){
+                MonsterStats stats = colliders[i].gameObject.GetComponent<MonsterStats>();
+                stats.hits++;
+                hitMarker.BodyHit();
+            }
+        }
+
         mouseLook.AddRecoil(0,0);
         yield return new WaitForSeconds(meleeTime/2);
         instanceData[1] = false;
@@ -1308,7 +1322,6 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
             messageRoutine = ShowMessage("Você se matou KKKK",4f);
         }
 
-
         if(deathMessage.Equals("matou você no chute")){
             PV.RPC("UpdateScoreMelee",RpcTarget.All,playerWhoKilledMe.PV.InstantiationId);
             PV.RPC("CallMethodForAllPlayers",RpcTarget.All,0,"");
@@ -1373,18 +1386,13 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                 }
             }
 
-            if(nearDistance <= 50f)//(nearDistance >= 100f)
+            if(nearDistance >= 200f)//<= 50f)
                 setRandomPosition = true;
 
         }
 
         this.transform.position = randomPosition;
 
-        /*
-        float x = Random.Range((this.heaven.transform.position.x - 5f), (this.heaven.transform.position.x + 5f));
-        float z = Random.Range((this.heaven.transform.position.z - 5f), this.heaven.transform.position.z + 5f);
-        this.transform.position = new Vector3(x,this.heaven.transform.position.y + 4f,z);
-        */
         ChangeRoutine(ChangeGuns(this.terciaryGun));
         yield return new WaitForSeconds(0.4f);
         ResetPerks();
@@ -1504,6 +1512,15 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         {
             noGuns = false;
         } 
+    }
+
+    public void ExplosionDamage(int damage)
+    {
+        object[] instanceData = new object[3];
+        instanceData[0] = this.PV.InstantiationId;
+        instanceData[1] = this.PV.InstantiationId;
+        instanceData[2] = damage;
+        PV.RPC("TakeDamage",RpcTarget.All,instanceData,"Você se matou KKKK");
     }
 
     [PunRPC]
