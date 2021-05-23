@@ -23,7 +23,7 @@ public class SoundSource : MonoBehaviourPun, IPunInstantiateMagicCallback
         object[] instantiationData = info.photonView.InstantiationData;
 
         audioIndex = (int) instantiationData[1];
-        if(instantiationData.Length > 1){
+        if(instantiationData.Length > 2){
             if(instantiationData[2] != null)
                 volumeMultiplier = (float) instantiationData[2];
         }

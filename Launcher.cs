@@ -21,7 +21,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 	[SerializeField] GameObject startGameButton;
 	[SerializeField] TMP_Text nickText;
 
-	string[] randomNick = {"Corno", "Crackudo", "Travesti", "Cavala", "Ribs", "Naruto", "Makonhero", "Noia"};
+	string[] randomNick = {"Corno", "Robson", "Cavala", "Ribs", "Naruto", "Hacker", "Noia"};
 
 	void Awake()
 	{
@@ -35,8 +35,14 @@ public class Launcher : MonoBehaviourPunCallbacks
 	}
 
 	public void InsertNick()
-	{		
-		PhotonNetwork.NickName = nickText.text;
+	{	
+		if(nickText != null){
+			if(nickText.text != null)
+				if(nickText.text.Length > 20)
+					PhotonNetwork.NickName = nickText.text.Substring(0, 20);
+				else
+					PhotonNetwork.NickName = nickText.text;
+		}
 	}
 
 	public override void OnConnectedToMaster()
@@ -50,7 +56,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 	{
 		MenuManager.Instance.OpenMenu("title");
 		Debug.Log("Joined Lobby");
-		if(string.IsNullOrEmpty(PhotonNetwork.NickName) || (PhotonNetwork.NickName != null && PhotonNetwork.NickName.Length < 2))
+		if(PhotonNetwork.NickName == null || PhotonNetwork.NickName == "" || (PhotonNetwork.NickName != null && PhotonNetwork.NickName.Length < 3))
 			PhotonNetwork.NickName = randomNick[Random.Range(0, randomNick.Length-1)] + Random.Range(0, 1000).ToString("000");
 	}
 
@@ -60,8 +66,19 @@ public class Launcher : MonoBehaviourPunCallbacks
 		{
 			return;
 		}
-		PhotonNetwork.CreateRoom(roomNameInputField.text);
+
+		string title = "Armando";
+		if(roomNameInputField.text.Length < 50)
+			if(roomNameInputField.text.Length > 20)
+				title = roomNameInputField.text.Substring(0, 20);
+			else
+				title = roomNameInputField.text;
+
+		PhotonNetwork.CreateRoom(title);
 		MenuManager.Instance.OpenMenu("loading");
+
+		if(PhotonNetwork.NickName == null || PhotonNetwork.NickName == "" || (PhotonNetwork.NickName != null && PhotonNetwork.NickName.Length < 3))
+			PhotonNetwork.NickName = randomNick[Random.Range(0, randomNick.Length-1)] + Random.Range(0, 1000).ToString("000");	
 	}
 
 	public override void OnJoinedRoom()
