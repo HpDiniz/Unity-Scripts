@@ -69,6 +69,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
     public float gravity = -19.62f;
     public float jumpHeight = 1.3f;
     public float groundDistance = 0.05f;
+    public GameObject eventSystem; 
 
     [HideInInspector] public int killStreak = 0;
     [HideInInspector] public int killCounter = 0;
@@ -153,6 +154,9 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
         mouseLook = GetComponentInChildren<MouseLook>();
 		controller = GetComponent<CharacterController>();
 		PV = GetComponent<PhotonView>();
+
+        if(!PV.IsMine)
+            Destroy(eventSystem);
         
         playerSound = GetComponent<PlayerSounds>();
 
@@ -1179,7 +1183,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
                         
                         instanceData[1] = target.PV.InstantiationId;
                         instanceData[2] = perks[4] ? (int)(amount * 1.25f) : amount;
-                        PV.RPC("TakeDamage",RpcTarget.All,instanceData,deathMessage);
+                        PV.RPC("TakeDamage",RpcTarget.All,instanceData,"meteu bala em você");
                     }
                 }
             } else {
@@ -1392,7 +1396,7 @@ public class PlayerMovement : MonoBehaviourPunCallbacks, IPunInstantiateMagicCal
 		RaycastHit hit;
 		float randomPositionX, randomPositionY, randomPositionZ;
 		Vector3 randomPosition = Vector3.zero;
-
+        
         while(!setRandomPosition){
 
             randomPositionX = Random.Range(terrainLeft, terrainRight);
